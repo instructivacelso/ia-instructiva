@@ -71,20 +71,33 @@ webhooks.post("/lead/:agente", async (req, res) => {
 // 2) EVOLUTION — mensagens recebidas do WhatsApp chegam aqui.
 //    POST /webhook/evolution   (registrado automaticamente por instância)
 // ─────────────────────────────────────────────────────────────
-webhooks.post("/evolution", async (req, res) => {
+// Aceita /webhook/evolution E /webhook/evolution/qualquer-evento
+// (algumas versões, com webhookByEvents=true, anexam o nome do evento na URL).
+webhooks.post(["/evolution", "/evolution/*"], async (req, res) => {
   // Sempre 200 rápido: o Evolution reenvia se demorar/der erro.
   res.status(200).json({ ok: true });
 
   try {
     const payload = req.body || {};
     const evento = (payload.event || "").toLowerCase();
+
+    // LOG de diagnóstico: mostra tudo que chega (aparece nos logs do Railway).
+    const instancia = payload.instance || payload.instanceName;
+    const dataPreview = Array.isArray(payload.data) ? payload.data[0] : payload.data;
+    console.log(
+      `[webhook<-] evento="${evento || "?"}" instancia="${instancia || "?"}" ` +
+      `path="${req.originalUrl}" fromMe=${dataPreview?.key?.fromMe} jid=${dataPreview?.key?.remoteJid || "-"}`
+    );
+
     if (evento && !evento.includes("messages.upsert") && !evento.includes("messages_upsert")) {
-      return;
+      return; // só nos interessa mensagem recebida
     }
 
-    const instancia = payload.instance || payload.instanceName;
     const data = Array.isArray(payload.data) ? payload.data[0] : payload.data;
-    if (!data || !data.key) return;
+    if (!data || !data.key) {
+      console.log("[webhook<-] ignorado: payload sem data.key");
+      return;
+    }
 
     // Ignora o que eu mesmo enviei e mensagens de grupo.
     if (data.key.fromMe) return;
@@ -93,7 +106,14 @@ webhooks.post("/evolution", async (req, res) => {
     if (remoteJid.includes("status@broadcast")) return;
 
     const agente = acharAgentePorInstancia(instancia);
-    if (!agente || !agente.ativo) return;
+    if (!agente) {
+      console.log(`[webhook<-] nenhum agente com instancia="${instancia}". Confira se o nome bate.`);
+      return;
+    }
+    if (!agente.ativo) {
+      console.log(`[webhook<-] agente "${agente.nome}" está inativo; ignorando.`);
+      return;
+    }
 
     const texto = extrairTexto(data.message);
     const pushName = data.pushName || "";

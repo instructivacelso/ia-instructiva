@@ -109,14 +109,21 @@ api.post("/agentes/:id/instancia", async (req, res) => {
       criacao = { jaExistia: true };
     }
 
-    const url = `${config().publicUrl}/webhook/evolution`;
-    if (config().publicUrl) {
-      await evolution.setWebhook(agente.instancia, url).catch((e) => {
-        console.warn("[instancia] setWebhook falhou:", e.message);
-      });
+    const pub = config().publicUrl;
+    const url = `${pub}/webhook/evolution`;
+    let webhookInfo;
+    if (!pub) {
+      webhookInfo = { ok: false, erro: "PUBLIC_URL não configurada — webhook NÃO registrado. Preencha em Configurações e conecte de novo." };
+    } else {
+      try {
+        const r = await evolution.setWebhook(agente.instancia, url);
+        webhookInfo = { ok: true, formato: r.formato, url };
+      } catch (e) {
+        webhookInfo = { ok: false, erro: e.message, url };
+      }
     }
 
-    res.json({ ok: true, instancia: agente.instancia, criacao, webhook: url });
+    res.json({ ok: true, instancia: agente.instancia, criacao, webhook: webhookInfo });
   } catch (e) {
     res.status(400).json({ ok: false, erro: e.message });
   }
@@ -135,6 +142,40 @@ api.get("/agentes/:id/qr", async (req, res) => {
       code: r.code || r.qrcode?.code || null,
       pairingCode: r.pairingCode || null,
     });
+  } catch (e) {
+    res.status(400).json({ ok: false, erro: e.message });
+  }
+});
+
+// Diagnóstico: mostra o webhook que o Evolution tem registrado pra essa instância.
+api.get("/agentes/:id/webhook", async (req, res) => {
+  try {
+    const agente = acharAgente(req.params.id);
+    if (!agente) return res.status(404).json({ ok: false, erro: "Agente não encontrado." });
+    const atual = await evolution.getWebhook(agente.instancia);
+    const esperado = `${config().publicUrl}/webhook/evolution`;
+    const urlRegistrada = atual?.url || atual?.webhook?.url || null;
+    res.json({
+      ok: true,
+      esperado,
+      registrado: urlRegistrada,
+      confere: Boolean(urlRegistrada) && urlRegistrada === esperado,
+      cru: atual,
+    });
+  } catch (e) {
+    res.status(200).json({ ok: false, erro: e.message });
+  }
+});
+
+// Re-registra o webhook manualmente (botão no painel).
+api.post("/agentes/:id/webhook", async (req, res) => {
+  try {
+    const agente = acharAgente(req.params.id);
+    if (!agente) return res.status(404).json({ ok: false, erro: "Agente não encontrado." });
+    const pub = config().publicUrl;
+    if (!pub) return res.status(400).json({ ok: false, erro: "PUBLIC_URL não configurada." });
+    const r = await evolution.setWebhook(agente.instancia, `${pub}/webhook/evolution`);
+    res.json({ ok: true, formato: r.formato });
   } catch (e) {
     res.status(400).json({ ok: false, erro: e.message });
   }

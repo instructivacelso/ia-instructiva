@@ -299,12 +299,36 @@ function modalWebhook(a) {
     <label>Exemplo de corpo (JSON)</label>
     <div class="readout" style="color:var(--muted); display:block">${esc('{ "nome": "João", "telefone": "5511998877665", "interesse": "curso solar" }')}</div>
 
-    <label>Webhook do Evolution <span class="hint">(registrado automático ao conectar)</span></label>
+    <label>Webhook do Evolution <span class="hint">(o Evolution manda as mensagens recebidas pra cá)</span></label>
     <div class="readout"><span>${esc(urlEvo)}</span>
       <button class="btn small ghost" onclick="copiar('${esc(urlEvo)}')">copiar</button></div>
 
-    <div class="footer"><button class="btn primary" data-close>Entendi</button></div>
+    <div id="whStatus" style="margin-top:12px; font-size:12.5px; color:var(--muted); min-height:18px"></div>
+
+    <div class="footer">
+      <button class="btn ghost" id="whCheck">Verificar registro</button>
+      <button class="btn primary" id="whReg">Registrar webhook agora</button>
+    </div>
   `);
+
+  const status = (msg, cor) => { const n = $("#whStatus"); n.textContent = msg; n.style.color = cor || "var(--muted)"; };
+  $("#whReg").onclick = async () => {
+    status("registrando…");
+    try {
+      const r = await api(`/agentes/${a.id}/webhook`, { method: "POST" });
+      status(`✓ Registrado (formato ${r.formato}). Mande uma mensagem de outro número pra testar.`, "var(--ok)");
+    } catch (e) { status("✗ " + e.message, "var(--danger)"); }
+  };
+  $("#whCheck").onclick = async () => {
+    status("consultando o Evolution…");
+    try {
+      const r = await api(`/agentes/${a.id}/webhook`);
+      if (r.erro) return status("✗ " + r.erro, "var(--danger)");
+      if (r.confere) status("✓ Webhook certo e registrado.", "var(--ok)");
+      else if (r.registrado) status(`⚠ Registrado, mas apontando pra: ${r.registrado}`, "var(--signal)");
+      else status("✗ Nenhum webhook registrado nessa instância. Clique em Registrar.", "var(--danger)");
+    } catch (e) { status("✗ " + e.message, "var(--danger)"); }
+  };
 }
 window.copiar = (t) => { navigator.clipboard.writeText(t).then(() => toast("Copiado.", "ok")); };
 
