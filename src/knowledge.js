@@ -154,10 +154,16 @@ export async function extrairTextoArquivo(base64, mimetype, fileName = "") {
   const buf = Buffer.from(base64, "base64");
   const nome = (fileName || "").toLowerCase();
   const ehPdf = mimetype === "application/pdf" || nome.endsWith(".pdf");
+  const ehDocx = nome.endsWith(".docx") || mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
   if (ehPdf) {
     const { default: pdfParse } = await import("pdf-parse");
     const r = await pdfParse(buf);
     return r.text || "";
+  }
+  if (ehDocx) {
+    const mammoth = await import("mammoth");
+    const r = await mammoth.extractRawText({ buffer: buf });
+    return r.value || "";
   }
   // txt / md / csv / outros textos
   return buf.toString("utf-8");

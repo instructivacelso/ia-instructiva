@@ -1,7 +1,7 @@
 {
   "name": "ia-instructiva",
   "version": "1.0.0",
-  "description": "Inteligência Artificial Instructiva - Orquestrador multi-agente sobre Evolution API",
+  "description": "Intelig\u00eancia Artificial Instructiva - Orquestrador multi-agente sobre Evolution API",
   "main": "server.js",
   "type": "module",
   "scripts": {
@@ -14,6 +14,7 @@
   "dependencies": {
     "express": "^4.19.2",
     "cors": "^2.8.5",
-    "pdf-parse": "^1.1.1"
+    "pdf-parse": "^1.1.1",
+    "mammoth": "^1.6.0"
   }
 }

@@ -5,6 +5,8 @@ const TONS = ["Amigável e próximo", "Profissional e direto", "Consultivo e edu
 const OQUEFAZ = ["Fecha a venda sozinha (não passa pro vendedor)", "Qualifica e passa pro vendedor humano", "Só tira dúvidas e agenda"];
 
 const SECOES = [
+  { grp: "Treinar rápido" },
+  { id: "documento", ic: "▤", nome: "Por documento" },
   { grp: "Geral" },
   { id: "identidade", ic: "★", nome: "Identidade" },
   { id: "persona", ic: "◉", nome: "Persona" },
@@ -27,7 +29,7 @@ async function abrirEditor(agente = null) {
   E.agente.identidade = E.agente.identidade || {}; E.agente.persona = E.agente.persona || {};
   E.agente.playbook = E.agente.playbook || {}; E.agente.escalacao = E.agente.escalacao || {};
   E.secao = "identidade"; E.preview = [];
-  E.kb = { curso: [], objecao: [], faq: [] };
+  E.kb = { curso: [], objecao: [], faq: [], documento: [] };
   document.body.style.overflow = "hidden";
   $("#editor").classList.add("open");
   $("#editor").onclick = (e) => { if (e.target.id === "editor") fecharEditor(); };
@@ -137,7 +139,44 @@ function renderSecao() {
       <textarea id="e-crit" style="min-height:160px" placeholder="Ex: encerra quando o lead comprar, disser que não tem interesse, ou ficar 2 dias sem responder após o follow-up. Passa pro humano se pedir nota fiscal ou reclamar.">${esc(a.escalacao.criterios || "")}</textarea>`;
     bind("#e-crit", "escalacao", "criterios");
   }
+  else if (E.secao === "documento") { renderSecaoDocumento(); }
   else { renderSecaoKb(); }
+}
+
+function renderSecaoDocumento() {
+  const m = $("#ed-main");
+  if (!E.agente.id) { m.innerHTML = `<h3>Treinar por documento</h3><div class="secdesc">Anexe um material e a IA aprende com ele.</div><div class="empty" style="padding:34px">Salve o agente primeiro (aba Identidade) — aí você já pode anexar o documento.</div>`; return; }
+  const docs = E.kb.documento || [];
+  m.innerHTML = `<h3>Treinar por documento</h3>
+    <div class="secdesc">Anexe um material (apostila, tabela de preços, script...) e a IA aprende com ele — sem precisar preencher tudo à mão. Ela passa a responder usando o conteúdo do documento automaticamente.</div>
+    <div class="dropzone dz-big" id="dz-doc"><div style="font-size:30px">⬆</div><div class="big">Anexar PDF, DOCX ou TXT</div><div style="font-size:12px">Clique para selecionar — pode anexar vários</div></div>
+    <input type="file" id="dzf-doc" accept=".pdf,.docx,.txt,.md,.csv" hidden multiple />
+    <div id="doc-list" style="margin-top:20px"></div>`;
+  const lista = $("#doc-list");
+  if (!docs.length) lista.innerHTML = `<div class="empty" style="padding:20px">Nenhum documento ainda.</div>`;
+  else docs.forEach((it) => {
+    const row = el(`<div class="kbrow"><div style="display:flex;gap:10px;align-items:center">
+      <span style="font-size:20px">📄</span><b style="flex:1;font-size:13.5px">${esc(it.titulo || it.fonte || "Documento")}</b>
+      <span class="kbstatus">${it.indexado ? `✓ ${it.qtdChunks} trechos` : "indexando…"}</span>
+      <button class="btn small danger ghost">Excluir</button></div></div>`);
+    row.querySelector("button").onclick = () => kbExcluir(it.id);
+    lista.appendChild(row);
+  });
+  const dz = $("#dz-doc"), f = $("#dzf-doc");
+  dz.onclick = () => f.click();
+  f.onchange = async () => {
+    const files = [...f.files]; if (!files.length) return;
+    for (const file of files) {
+      toast(`Lendo "${file.name}"…`);
+      try {
+        const base64 = await fileToBase64(file);
+        await api(`/agentes/${E.agente.id}/kb/arquivo`, { method: "POST", body: JSON.stringify({ base64, mimetype: file.type, fileName: file.name, categoria: "documento" }) });
+      } catch (e) { toast(`${file.name}: ${e.message}`, "err"); }
+    }
+    toast("Documento(s) adicionado(s). A IA já aprendeu.", "ok");
+    await carregarKbEditor(); renderEditor();
+    f.value = "";
+  };
 }
 
 // Seções de base (cursos, objeções, faq)
@@ -221,7 +260,7 @@ async function carregarKbEditor() {
   if (!E.agente.id) return;
   try {
     const itens = await api(`/agentes/${E.agente.id}/kb`);
-    E.kb = { curso: [], objecao: [], faq: [] };
+    E.kb = { curso: [], objecao: [], faq: [], documento: [] };
     itens.forEach((it) => { const c = it.categoria || "geral"; if (E.kb[c]) E.kb[c].push(it); });
   } catch {}
 }
