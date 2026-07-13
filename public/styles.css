@@ -125,6 +125,8 @@ button { font-family: inherit; }
 .topbar h2::before { content: ""; width: 5px; height: 20px; border-radius: 3px; background: var(--grad-brand); display: inline-block; }
 .topbar .sub { color: var(--muted); font-size: 12.5px; margin-top: 6px; margin-left: 16px; }
 .content { padding: 26px 34px 60px; flex: 1; min-height: 0; overflow-y: auto; }
+/* Na tela de conversas, esconde o cabeçalho "Olá..." pra o chat usar a tela toda */
+body.chatview .topbar { display: none; }
 
 /* ── Botões ── */
 .btn { border: 1px solid var(--line); background: var(--card); color: var(--text); padding: 10px 16px; border-radius: 11px; cursor: pointer; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 7px; transition: .13s; box-shadow: var(--shadow-sm); }

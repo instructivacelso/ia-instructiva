@@ -112,6 +112,7 @@ function irPara(view) {
   document.querySelectorAll(".navbtn[data-view]").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
   $("#overlay").classList.remove("open");
   $("#content").classList.remove("chatmode");
+  document.body.classList.remove("chatview");
   const T = {
     agentes: ["Agentes", "Cada agente é um número de WhatsApp com sua própria IA."],
     conversas: ["Conversas", "Acompanhe e assuma quando precisar."],
@@ -280,6 +281,7 @@ async function viewConversas() {
     <div class="convview" id="convview"><div class="placeholder">Selecione uma conversa</div></div>
   </div>`;
   $("#content").classList.add("chatmode");
+  document.body.classList.add("chatview");
   $("#convFiltro").onchange = (e) => { S.agenteFiltro = e.target.value; carregarConversas(); };
   carregarConversas();
   S.timers.push(setInterval(() => {
