@@ -282,8 +282,7 @@ function renderPreview() {
     E.preview.push({ role: "user", content: t }); inp.value = ""; renderPreview();
     const pending = el(`<div class="msg assistant" style="opacity:.6">digitando…</div>`); $("#pv-msgs").appendChild(pending); $("#pv-msgs").scrollTop = 1e6;
     try {
-      const prompt = window.montarPromptClient ? window.montarPromptClient(E.agente) : E.agente.promptSistema;
-      const r = await api(`/agentes/${E.agente.id}/preview`, { method: "POST", body: JSON.stringify({ mensagem: t, historico: E.preview.slice(0, -1), promptSistema: prompt }) });
+      const r = await api(`/agentes/${E.agente.id}/preview`, { method: "POST", body: JSON.stringify({ mensagem: t, historico: E.preview.slice(0, -1) }) });
       E.preview.push({ role: "assistant", content: r.resposta }); renderPreview();
     } catch (e) { pending.remove(); toast(e.message, "err"); }
   };

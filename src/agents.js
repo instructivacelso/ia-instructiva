@@ -43,31 +43,46 @@ export function montarPromptSistema(a) {
   const p = a.persona || {};
   const pb = a.playbook || {};
   const esc = a.escalacao || {};
-  const linhas = [];
-  linhas.push(`Você é ${a.nome}, atendente de vendas da Escola Instructiva no WhatsApp.`);
-  if (p.quemEla) linhas.push(p.quemEla);
-  if (id.objetivo) linhas.push(`Seu objetivo: ${id.objetivo}`);
-  if (id.tomVoz) linhas.push(`Tom de voz: ${id.tomVoz}.`);
-  if (id.oQueFaz) linhas.push(`Modo de atuação: ${id.oQueFaz}.`);
-  if (p.comoEscreve) linhas.push(`Como você escreve: ${p.comoEscreve}`);
-  if (p.sempre) linhas.push(`SEMPRE:\n${p.sempre}`);
-  if (p.nunca) linhas.push(`NUNCA:\n${p.nunca}`);
+  const L = [];
+
+  L.push(`# QUEM VOCÊ É`);
+  L.push(`Você é ${a.nome}, atendente de vendas da Escola Instructiva, conversando com um lead pelo WhatsApp.` + (p.quemEla ? ` ${p.quemEla}` : ""));
+  if (id.objetivo) L.push(`Seu objetivo em toda conversa: ${id.objetivo}.`);
+
+  L.push(`\n# COMO VOCÊ FALA`);
+  if (id.tomVoz) L.push(`- Tom: ${id.tomVoz}.`);
+  if (p.comoEscreve) L.push(`- Estilo: ${p.comoEscreve}`);
+  L.push(`- Escreva como uma pessoa de verdade no WhatsApp: natural, direto, sem parecer robô ou vendedor decorado.`);
+  L.push(`- Mensagens curtas. Responda em UMA mensagem só por vez. Nada de textão.`);
+  L.push(`- Use o nome do lead quando souber. Uma pergunta por vez.`);
+
+  if (p.sempre || p.nunca) {
+    L.push(`\n# REGRAS INVIOLÁVEIS (siga SEMPRE, sem exceção)`);
+    if (p.sempre) L.push(`SEMPRE:\n${p.sempre}`);
+    if (p.nunca) L.push(`NUNCA:\n${p.nunca}`);
+  }
+  L.push(`\n# REGRAS DE OURO`);
+  L.push(`- NUNCA invente preço, link, prazo, condição ou qualquer informação. Só afirme o que estiver na BASE DE CONHECIMENTO ou no que você configurou. Se não souber, diga que vai confirmar — não chute.`);
+  L.push(`- Responda EXATAMENTE o que o lead perguntou antes de puxar o assunto de volta pra venda.`);
+  L.push(`- Leia TODAS as mensagens recentes do lead antes de responder (ele costuma mandar em pedaços). Junte o sentido e responda uma vez só.`);
+  L.push(`- Não repita o que já disse. Não mande saudação de novo no meio da conversa.`);
 
   const etapas = [
     ["Abertura", pb.abertura],
-    ["Qualificação (perguntas-chave)", pb.qualificacao],
+    ["Qualificação (o que perguntar)", pb.qualificacao],
     ["Apresentação do curso", pb.apresentacao],
-    ["Quando falar o preço", pb.quandoPreco],
+    ["Quando e como falar o preço", pb.quandoPreco],
     ["Fechamento", pb.fechamento],
     ["Recuperação (se o lead sumir)", pb.recuperacao],
   ].filter(([, v]) => v && v.trim());
   if (etapas.length) {
-    linhas.push("SCRIPT DE VENDAS (use como guia, adapte ao lead, não seja robótico):");
-    etapas.forEach(([t, v], i) => linhas.push(`${i + 1}. ${t}: ${v}`));
+    L.push(`\n# SCRIPT DE VENDAS (seu roteiro — siga a ordem, mas soe natural e adapte ao lead)`);
+    etapas.forEach(([t, v], i) => L.push(`${i + 1}. ${t}: ${v}`));
   }
-  if (esc.criterios) linhas.push(`ENCERRAMENTO/ESCALAÇÃO: ${esc.criterios}`);
-  linhas.push("Responda sempre em português, de forma natural e humana, como no WhatsApp.");
-  return linhas.join("\n\n");
+  if (esc.criterios) { L.push(`\n# QUANDO ENCERRAR OU CHAMAR UM HUMANO`); L.push(esc.criterios); }
+
+  L.push(`\nResponda agora à última fala do lead, em português, seguindo tudo acima.`);
+  return L.join("\n");
 }
 
 export function criarAgente(dados) {

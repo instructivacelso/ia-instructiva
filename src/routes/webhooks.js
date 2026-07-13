@@ -7,6 +7,7 @@ import {
   salvarConversa,
   iniciarContato,
   responderMensagem,
+  agendarResposta,
 } from "../conversations.js";
 import { evolution } from "../evolution.js";
 import { tipoMidia, salvarMidia, transcreverAudio, lerImagem } from "../media.js";
@@ -211,10 +212,8 @@ webhooks.post(["/evolution", "/evolution/*"], async (req, res) => {
     // IA responde só se: ligada no número (agente) e ligada na conversa.
     if (!iaAgenteLigada(agente) || !conv.iaAtiva) return;
 
-    await responderMensagem(agente, conv).catch((e) => {
-      console.error("[evolution] falha ao responder:", e.message);
-      adicionarMensagem(conv, "system-note", `Falha ao responder: ${e.message}`);
-    });
+    // Agenda a resposta (junta mensagens picadas do lead antes de responder).
+    agendarResposta(agente, conv);
   } catch (e) {
     console.error("[webhook evolution]", e);
   }

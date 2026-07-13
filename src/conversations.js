@@ -102,16 +102,23 @@ export async function iniciarContato(agente, conv) {
 // RESPOSTA a uma mensagem recebida.
 export async function responderMensagem(agente, conv) {
   const contexto = montarContextoLead(conv);
-  // Busca na base de conhecimento os trechos relevantes pra última mensagem do lead.
-  const ultimaMsg = [...conv.historico].reverse().find((m) => m.role === "user")?.content || "";
+  // Busca na base usando as últimas falas do lead (não só a última linha),
+  // pra pegar melhor o que ele quer mesmo mandando em pedaços.
+  const ultimasDoLead = conv.historico
+    .filter((m) => m.role === "user")
+    .slice(-3)
+    .map((m) => m.content)
+    .join(" ");
   let base = "";
-  try { base = await buscarContexto(agente.id, ultimaMsg); } catch {}
+  try { base = await buscarContexto(agente.id, ultimasDoLead, 8); } catch {}
   const promptFinal =
     agente.promptSistema +
     (contexto ? "\n\n" + contexto : "") +
     (base
-      ? "\n\n[BASE DE CONHECIMENTO — use estas informações oficiais pra responder; " +
-        "se a resposta estiver aqui, siga à risca (preços, links, prazos). Não invente o que não está aqui.]\n" + base
+      ? "\n\n# BASE DE CONHECIMENTO (informações OFICIAIS da empresa)\n" +
+        "Use SÓ estas informações para falar de preço, links, prazos, o que o curso inclui e detalhes. " +
+        "Se a resposta está aqui, use exatamente o que está escrito. Se o lead perguntar algo que NÃO está aqui, diga que vai confirmar — nunca invente.\n\n" +
+        base
       : "");
   const texto = await gerarResposta({
     promptSistema: promptFinal,
@@ -123,6 +130,25 @@ export async function responderMensagem(agente, conv) {
   const r = await evolution.enviarTexto(agente.instancia, destino(conv), texto);
   adicionarMensagem(conv, "assistant", texto, { waId: r?.key?.id });
   return texto;
+}
+
+// ── Agenda de resposta com "debounce": junta mensagens picadas do lead ──
+// O WhatsApp costuma vir em vários balões seguidos. Em vez de responder cada
+// um, esperamos alguns segundos; se chegar mais mensagem, o timer reinicia.
+const timersResposta = new Map();
+export function agendarResposta(agente, conv, delayMs = 4000) {
+  const chave = conv.id;
+  if (timersResposta.has(chave)) clearTimeout(timersResposta.get(chave));
+  timersResposta.set(chave, setTimeout(async () => {
+    timersResposta.delete(chave);
+    // Recarrega estado fresco: a conversa/agente pode ter sido pausada nesse meio tempo.
+    const convF = acharConversaPorId(conv.id);
+    if (!convF || convF.iaAtiva === false) return;
+    const agF = db.getAgentes().find((a) => a.id === agente.id);
+    if (!agF || agF.iaAtiva === false || agF.ativo === false) return;
+    try { await responderMensagem(agF, convF); }
+    catch (e) { adicionarMensagem(convF, "system-note", `Falha ao responder: ${e.message}`); }
+  }, delayMs));
 }
 
 // Envio manual (humano assumiu a conversa pelo painel).

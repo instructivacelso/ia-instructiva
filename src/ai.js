@@ -24,8 +24,10 @@ export async function gerarResposta({ promptSistema, historico, modelo }) {
     body: JSON.stringify({
       model: modelo || openaiModel,
       messages: mensagens,
-      temperature: 0.7,
+      temperature: 0.4,
       max_tokens: 500,
+      presence_penalty: 0.3,
+      frequency_penalty: 0.3,
     }),
   });
 
