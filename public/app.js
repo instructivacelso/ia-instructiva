@@ -128,7 +128,7 @@ function irPara(view) {
 // ───────── Agentes ─────────
 async function viewAgentes() {
   const btn = el(`<button class="btn primary">+ Novo agente</button>`);
-  btn.onclick = () => modalAgente();
+  btn.onclick = () => abrirEditor();
   $("#topActions").appendChild(btn);
   const content = $("#content");
   content.innerHTML = `<div style="color:var(--muted)">Carregando…</div>`;
@@ -169,9 +169,8 @@ function cardAgente(a) {
   const act = c.querySelector(".actions");
   const add = (t, cls, fn) => { const b = el(`<button class="btn small ${cls}">${t}</button>`); b.onclick = fn; act.appendChild(b); };
   add("Conectar", "wa", () => modalConexao(a));
-  add("Base", "ghost", () => modalConhecimento(a));
   add(iaOff ? "Ligar IA" : "Pausar IA", iaOff ? "" : "ghost", () => toggleIaAgente(a));
-  add("Editar", "ghost", () => modalAgente(a));
+  add("Editar", "ghost", () => abrirEditor(a));
   add("Webhook", "ghost", () => modalWebhook(a));
   add("Excluir", "danger ghost", () => excluirAgente(a));
   return c;

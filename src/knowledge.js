@@ -73,6 +73,7 @@ export async function criarItem(agenteId, dados) {
     id: crypto.randomUUID(),
     agenteId,
     tipo: dados.tipo || "texto", // texto | bloco | qa | arquivo
+    categoria: dados.categoria || "geral", // curso | objecao | faq | geral
     titulo: dados.titulo || "",
     pergunta: dados.pergunta || "",
     conteudo: dados.conteudo || "",

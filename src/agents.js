@@ -37,6 +37,39 @@ export function acharAgentePorInstancia(instancia) {
   return db.getAgentes().find((a) => a.instancia === instancia) || null;
 }
 
+// Monta o prompt do sistema a partir das seções estruturadas do construtor.
+export function montarPromptSistema(a) {
+  const id = a.identidade || {};
+  const p = a.persona || {};
+  const pb = a.playbook || {};
+  const esc = a.escalacao || {};
+  const linhas = [];
+  linhas.push(`Você é ${a.nome}, atendente de vendas da Escola Instructiva no WhatsApp.`);
+  if (p.quemEla) linhas.push(p.quemEla);
+  if (id.objetivo) linhas.push(`Seu objetivo: ${id.objetivo}`);
+  if (id.tomVoz) linhas.push(`Tom de voz: ${id.tomVoz}.`);
+  if (id.oQueFaz) linhas.push(`Modo de atuação: ${id.oQueFaz}.`);
+  if (p.comoEscreve) linhas.push(`Como você escreve: ${p.comoEscreve}`);
+  if (p.sempre) linhas.push(`SEMPRE:\n${p.sempre}`);
+  if (p.nunca) linhas.push(`NUNCA:\n${p.nunca}`);
+
+  const etapas = [
+    ["Abertura", pb.abertura],
+    ["Qualificação (perguntas-chave)", pb.qualificacao],
+    ["Apresentação do curso", pb.apresentacao],
+    ["Quando falar o preço", pb.quandoPreco],
+    ["Fechamento", pb.fechamento],
+    ["Recuperação (se o lead sumir)", pb.recuperacao],
+  ].filter(([, v]) => v && v.trim());
+  if (etapas.length) {
+    linhas.push("SCRIPT DE VENDAS (use como guia, adapte ao lead, não seja robótico):");
+    etapas.forEach(([t, v], i) => linhas.push(`${i + 1}. ${t}: ${v}`));
+  }
+  if (esc.criterios) linhas.push(`ENCERRAMENTO/ESCALAÇÃO: ${esc.criterios}`);
+  linhas.push("Responda sempre em português, de forma natural e humana, como no WhatsApp.");
+  return linhas.join("\n\n");
+}
+
 export function criarAgente(dados) {
   const agentes = db.getAgentes();
   const id = crypto.randomUUID();
@@ -52,12 +85,17 @@ export function criarAgente(dados) {
     nome: dados.nome || "Novo agente",
     instancia,
     ativo: dados.ativo !== false,
-    iaAtiva: dados.iaAtiva !== false, // IA respondendo (por número); pode pausar
-    promptSistema: dados.promptSistema || "Você é um atendente da Escola Instructiva.",
-    mensagemInicial: dados.mensagemInicial || "", // vazio = IA gera a abertura
-    modelo: dados.modelo || "", // vazio = usa o modelo padrão global
+    iaAtiva: dados.iaAtiva !== false,
+    modelo: dados.modelo || "",
+    mensagemInicial: dados.mensagemInicial || "",
+    // seções do construtor
+    identidade: dados.identidade || {},
+    persona: dados.persona || {},
+    playbook: dados.playbook || {},
+    escalacao: dados.escalacao || {},
     criadoEm: new Date().toISOString(),
   };
+  novo.promptSistema = dados.promptSistema || montarPromptSistema(novo);
   agentes.push(novo);
   db.saveAgentes(agentes);
   return novo;
@@ -70,6 +108,12 @@ export function atualizarAgente(id, patch) {
   // instancia é imutável depois de criada (evita quebrar o vínculo do webhook)
   const { instancia, id: _ignore, ...resto } = patch;
   agentes[i] = { ...agentes[i], ...resto };
+  // Se mexeu em alguma seção estruturada, recompõe o prompt (a não ser que
+  // o próprio patch tenha mandado um promptSistema explícito).
+  const mexeuSecao = ["identidade", "persona", "playbook", "escalacao", "nome"].some((k) => k in patch);
+  if (mexeuSecao && !("promptSistema" in patch)) {
+    agentes[i].promptSistema = montarPromptSistema(agentes[i]);
+  }
   db.saveAgentes(agentes);
   return agentes[i];
 }

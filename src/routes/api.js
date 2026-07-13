@@ -28,6 +28,8 @@ import {
   removerUsuario,
 } from "../users.js";
 import { caminhoAbsoluto } from "../media.js";
+import { gerarResposta } from "../ai.js";
+import { buscarContexto } from "../knowledge.js";
 import {
   listarItens as kbListar,
   criarItem as kbCriar,
@@ -251,7 +253,7 @@ api.post("/agentes/:id/logout", async (req, res) => {
 api.get("/agentes/:id/kb", (req, res) => {
   const agente = agenteAutorizado(req, res); if (!agente) return;
   res.json(kbListar(agente.id).map((i) => ({
-    id: i.id, tipo: i.tipo, titulo: i.titulo, pergunta: i.pergunta,
+    id: i.id, tipo: i.tipo, categoria: i.categoria || "geral", titulo: i.titulo, pergunta: i.pergunta,
     conteudo: i.conteudo, fonte: i.fonte, indexado: i.indexado, qtdChunks: i.qtdChunks || 0, criadoEm: i.criadoEm,
   })));
 });
@@ -276,7 +278,7 @@ api.post("/agentes/:id/kb/arquivo", async (req, res) => {
     base64 = String(base64).replace(/^data:[^;]+;base64,/, "");
     const texto = await extrairTextoArquivo(base64, mimetype, fileName);
     if (!texto.trim()) return res.status(400).json({ ok: false, erro: "Não consegui extrair texto desse arquivo." });
-    const item = await kbCriar(agente.id, { tipo: "arquivo", titulo: fileName || "Arquivo", conteudo: texto, fonte: fileName || "" });
+    const item = await kbCriar(agente.id, { tipo: "arquivo", categoria: (req.body?.categoria || "geral"), titulo: fileName || "Arquivo", conteudo: texto, fonte: fileName || "" });
     res.json({ ok: true, item: { id: item.id, tipo: item.tipo, titulo: item.titulo, chars: texto.length } });
   } catch (e) { res.status(400).json({ ok: false, erro: e.message }); }
 });
@@ -286,6 +288,27 @@ api.post("/agentes/:id/kb/reindex", async (req, res) => {
   const agente = agenteAutorizado(req, res); if (!agente) return;
   try { const n = await kbReindex(agente.id); res.json({ ok: true, pedacos: n }); }
   catch (e) { res.status(400).json({ ok: false, erro: e.message }); }
+});
+
+// Preview ao vivo: testa a IA no editor sem enviar pro WhatsApp.
+api.post("/agentes/:id/preview", async (req, res) => {
+  const agente = agenteAutorizado(req, res); if (!agente) return;
+  try {
+    const historico = Array.isArray(req.body?.historico) ? req.body.historico : [];
+    const mensagem = (req.body?.mensagem || "").trim();
+    if (!mensagem) return res.status(400).json({ ok: false, erro: "Mensagem vazia." });
+    // Usa o prompt que veio do editor (ainda não salvo) OU o do agente.
+    const promptBase = (req.body?.promptSistema || agente.promptSistema || "").trim();
+    let base = "";
+    try { base = await buscarContexto(agente.id, mensagem); } catch {}
+    const promptFinal = promptBase + (base ? "\n\n[BASE DE CONHECIMENTO — use isto pra responder]\n" + base : "");
+    const resposta = await gerarResposta({
+      promptSistema: promptFinal,
+      historico: [...historico, { role: "user", content: mensagem }],
+      modelo: agente.modelo,
+    });
+    res.json({ ok: true, resposta });
+  } catch (e) { res.status(400).json({ ok: false, erro: e.message }); }
 });
 
 // Editar / excluir item (confere dono via agente do item).
