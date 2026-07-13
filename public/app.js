@@ -47,43 +47,47 @@ async function entrar(login, senha) {
   if (!res.ok) throw new Error(d.erro || "Falha no login.");
   S.token = d.token; sessionStorage.setItem("ia_token", d.token);
   const me = await api("/me");
-  S.usuario = me.usuario; S.iaGlobal = me.iaGlobalAtiva;
+  S.usuario = me.usuario;
   iniciarApp();
 }
 async function restaurarSessao() {
-  try { const me = await api("/me"); S.usuario = me.usuario; S.iaGlobal = me.iaGlobalAtiva; iniciarApp(); }
+  try { const me = await api("/me"); S.usuario = me.usuario; iniciarApp(); }
   catch { logout(); }
 }
 function logout() {
   sessionStorage.removeItem("ia_token"); S.token = ""; S.usuario = null; limparTimers();
   $("#app").classList.remove("visible"); $("#gate").style.display = "grid";
 }
-function iniciarApp(me) {
+async function iniciarApp(me) {
   $("#gate").style.display = "none"; $("#app").classList.add("visible");
   $("#uAvatar").textContent = iniciais(S.usuario.nome);
   $("#uNome").textContent = S.usuario.nome;
   $("#uRole").textContent = S.usuario.role === "admin" ? "administrador" : "usuário";
   $("#greeting").textContent = "Olá, " + String(S.usuario.nome || "").split(/\s+/)[0];
-  renderGlobalIa();
+  try { S.agentes = await api("/agentes"); } catch {}
+  renderBulkIa();
   montarNav();
   irPara("agentes");
 }
 
-function renderGlobalIa() {
+// Botão que pausa/liga a IA de TODOS os MEUS números de uma vez.
+function renderBulkIa() {
   const box = document.querySelector("#globalIa");
   if (!box) return;
-  if (S.usuario.role !== "admin") { box.innerHTML = ""; return; }
-  const on = S.iaGlobal !== false;
-  box.innerHTML = `<div class="iaglobal ${on ? "" : "off"}">
-    <span class="lbl"><span class="dotst"></span> IA ${on ? "ligada" : "pausada"}</span>
-    <button class="tgl">${on ? "Pausar tudo" : "Ligar tudo"}</button></div>`;
+  const meus = (S.agentes || []).filter((a) => a.usuarioId === S.usuario.id);
+  if (!meus.length) { box.innerHTML = ""; return; }
+  const algumLigado = meus.some((a) => a.iaAtiva !== false);
+  box.innerHTML = `<div class="iaglobal ${algumLigado ? "" : "off"}">
+    <span class="lbl"><span class="dotst"></span> minhas IAs: ${algumLigado ? "ligadas" : "pausadas"}</span>
+    <button class="tgl">${algumLigado ? "Pausar minhas" : "Ligar minhas"}</button></div>`;
   box.querySelector(".tgl").onclick = async () => {
-    const nova = !(S.iaGlobal !== false);
+    const nova = !algumLigado;
     try {
-      const r = await api("/ia-global", { method: "POST", body: JSON.stringify({ ativa: nova }) });
-      S.iaGlobal = r.iaGlobalAtiva;
-      renderGlobalIa();
-      toast(S.iaGlobal ? "IA ligada em todos os números." : "IA pausada em tudo — nenhum número responde.", "ok");
+      await api("/agentes/ia-bulk", { method: "POST", body: JSON.stringify({ ativa: nova }) });
+      S.agentes = await api("/agentes");
+      renderBulkIa();
+      if (S.view === "agentes") viewAgentes();
+      toast(nova ? "IA ligada nos seus números." : "IA pausada nos seus números.", "ok");
     } catch (e) { toast(e.message, "err"); }
   };
 }
@@ -129,6 +133,7 @@ async function viewAgentes() {
   content.innerHTML = `<div style="color:var(--muted)">Carregando…</div>`;
   try { S.agentes = await api("/agentes"); }
   catch (e) { content.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  renderBulkIa();
   if (!S.agentes.length) {
     content.innerHTML = `<div class="empty"><div class="big">Nenhum agente ainda</div>Crie o primeiro pra conectar um número e treinar sua IA.</div>`;
     return;

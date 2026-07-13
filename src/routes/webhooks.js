@@ -12,11 +12,9 @@ import { evolution } from "../evolution.js";
 import { tipoMidia, salvarMidia, transcreverAudio, lerImagem } from "../media.js";
 import { db } from "../db.js";
 
-// IA está ligada? (global + agente). A conversa tem o próprio toggle à parte.
-function iaLigadaPara(agente) {
-  const s = db.getSettings();
-  const globalOn = s.iaGlobalAtiva !== false;
-  return globalOn && agente.iaAtiva !== false;
+// IA está ligada nesse número/agente? (a conversa tem o próprio toggle à parte)
+function iaAgenteLigada(agente) {
+  return agente.iaAtiva !== false;
 }
 
 export const webhooks = express.Router();
@@ -67,7 +65,7 @@ webhooks.post("/lead/:agente", async (req, res) => {
     // Responde rápido pra landing page e dispara o contato em background.
     res.status(200).json({ ok: true, conversaId: conv.id });
 
-    if (!iaLigadaPara(agente)) {
+    if (!iaAgenteLigada(agente)) {
       adicionarMensagem(conv, "system-note", "IA pausada — lead registrado, sem contato automático.");
       return;
     }
@@ -113,8 +111,6 @@ webhooks.post(["/evolution", "/evolution/*"], async (req, res) => {
       return;
     }
 
-    // Ignora o que eu mesmo enviei e mensagens de grupo.
-    if (data.key.fromMe) return;
     const remoteJid = data.key.remoteJid || "";
     if (remoteJid.endsWith("@g.us")) return;
     if (remoteJid.includes("status@broadcast")) return;
@@ -127,6 +123,33 @@ webhooks.post(["/evolution", "/evolution/*"], async (req, res) => {
     if (!agente.ativo) {
       console.log(`[webhook<-] agente "${agente.nome}" está inativo; ignorando.`);
       return;
+    }
+
+    // Mensagem ENVIADA por esse número (fromMe): pode ter saído do sistema
+    // (IA/painel) ou ter sido digitada direto no celular. Queremos que apareça.
+    if (data.key.fromMe) {
+      const waId = data.key.id;
+      const txt = extrairTexto(data.message);
+      let conv = acharConversa(agente.id, remoteJid);
+      // Já registramos (envio pelo próprio sistema)? Então ignora — evita duplicar.
+      if (conv && waId && conv.historico.some((m) => m.waId && m.waId === waId)) return;
+      if (conv && txt && conv.historico.some((m) => m.role === "assistant" && m.content === txt && Date.now() - new Date(m.ts).getTime() < 60000)) return;
+      // Senão, foi digitada no celular — registra pra aparecer no painel.
+      if (!conv) conv = criarConversa({ agenteId: agente.id, numero: remoteJid, nome: "", origem: "whatsapp" });
+      conv.remoteJid = remoteJid;
+      const mid = tipoMidia(data.message);
+      if (txt) {
+        adicionarMensagem(conv, "assistant", txt, { fromPhone: true, waId });
+      } else if (mid) {
+        try {
+          const b = await evolution.baixarMidiaBase64(agente.instancia, data);
+          const rel = salvarMidia(conv.id, b.base64, b.mimetype || mid.mimetype);
+          adicionarMensagem(conv, "assistant", mid.legenda || "", { fromPhone: true, waId, mediaTipo: mid.tipo, mediaPath: rel, mimetype: b.mimetype || mid.mimetype });
+        } catch {
+          adicionarMensagem(conv, "assistant", `[${mid.tipo} enviado pelo celular]`, { fromPhone: true, waId, mediaTipo: mid.tipo });
+        }
+      }
+      return; // não aciona a IA pra mensagens que nós enviamos
     }
 
     let texto = extrairTexto(data.message);
@@ -185,8 +208,8 @@ webhooks.post(["/evolution", "/evolution/*"], async (req, res) => {
 
     adicionarMensagem(conv, "user", texto, meta);
 
-    // IA responde só se: ligada globalmente, ligada no agente e ligada na conversa.
-    if (!iaLigadaPara(agente) || !conv.iaAtiva) return;
+    // IA responde só se: ligada no número (agente) e ligada na conversa.
+    if (!iaAgenteLigada(agente) || !conv.iaAtiva) return;
 
     await responderMensagem(agente, conv).catch((e) => {
       console.error("[evolution] falha ao responder:", e.message);

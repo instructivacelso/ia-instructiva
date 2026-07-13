@@ -71,10 +71,8 @@ const soAdmin = (req, res, next) => {
 // ── Eu / status ──
 api.get("/me", (req, res) => {
   const c = config();
-  const s = db.getSettings();
   res.json({
     usuario: { id: req.usuario.id, nome: req.usuario.nome, login: req.usuario.login, role: req.usuario.role },
-    iaGlobalAtiva: s.iaGlobalAtiva !== false,
     config: {
       evolutionConfigurado: Boolean(c.evolutionUrl && c.evolutionApiKey),
       openaiConfigurado: Boolean(c.openaiApiKey),
@@ -85,12 +83,16 @@ api.get("/me", (req, res) => {
   });
 });
 
-// ── Liga/desliga a IA no sistema inteiro (admin) ──
-api.post("/ia-global", soAdmin, (req, res) => {
-  const s = db.getSettings();
-  s.iaGlobalAtiva = Boolean(req.body?.ativa);
-  db.saveSettings(s);
-  res.json({ ok: true, iaGlobalAtiva: s.iaGlobalAtiva });
+// ── Liga/pausa a IA de TODOS os meus números de uma vez ──
+api.post("/agentes/ia-bulk", (req, res) => {
+  const ativa = Boolean(req.body?.ativa);
+  const meus = db.getAgentes();
+  let n = 0;
+  meus.forEach((a) => {
+    if (a.usuarioId === req.usuario.id) { a.iaAtiva = ativa; n++; }
+  });
+  db.saveAgentes(meus);
+  res.json({ ok: true, ativa, afetados: n });
 });
 
 // ── Usuários (admin) ──
