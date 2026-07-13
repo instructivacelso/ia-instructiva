@@ -521,7 +521,7 @@ function montarComposer(id) {
   };
 
   // Áudio (gravar e enviar)
-  $("#btnMic").onclick = () => (S.gravando ? pararGravacao() : iniciarGravacao(id));
+  $("#btnMic").onclick = () => { if (!S.gravando) iniciarGravacao(id); };
 }
 
 async function iniciarGravacao(id) {
@@ -532,13 +532,16 @@ async function iniciarGravacao(id) {
       : MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "";
     const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
     const chunks = [];
+    S.recCancelado = false;
     rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
     rec.onstop = async () => {
       stream.getTracks().forEach((t) => t.stop());
-      const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
-      const label = document.querySelector(".reclabel"); if (label) label.remove();
+      limparBarraGravacao();
       $("#btnMic")?.classList.remove("rec");
-      if (blob.size < 800) return; // muito curto, ignora
+      S.gravando = false;
+      if (S.recCancelado) return; // cancelou: descarta
+      const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
+      if (blob.size < 800) return;
       toast("Enviando áudio…");
       try {
         const base64 = await fileToBase64(new File([blob], "audio", { type: blob.type }));
@@ -549,14 +552,30 @@ async function iniciarGravacao(id) {
     S.rec = rec; S.gravando = true;
     rec.start();
     $("#btnMic").classList.add("rec");
-    const c = document.querySelector(".composer");
-    c.appendChild(el(`<div class="reclabel">● gravando… toque no microfone pra enviar</div>`));
+    montarBarraGravacao(id);
   } catch (e) { toast("Não consegui acessar o microfone.", "err"); }
 }
-function pararGravacao() {
-  S.gravando = false;
-  try { S.rec?.stop(); } catch {}
-  S.rec = null;
+
+function montarBarraGravacao(id) {
+  limparBarraGravacao();
+  const c = document.querySelector(".composer"); if (!c) return;
+  const bar = el(`<div class="recbar">
+    <span class="recdot"></span><span class="rectime" id="rectime">0:00</span>
+    <span style="flex:1"></span>
+    <button class="btn small danger ghost" id="rec-cancel">Cancelar</button>
+    <button class="btn small wa" id="rec-send">Enviar áudio</button></div>`);
+  c.appendChild(bar);
+  const t0 = Date.now();
+  S.recTimer = setInterval(() => {
+    const s = Math.floor((Date.now() - t0) / 1000);
+    const el2 = document.querySelector("#rectime"); if (el2) el2.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  }, 500);
+  $("#rec-cancel").onclick = () => { S.recCancelado = true; try { S.rec?.stop(); } catch {} toast("Gravação cancelada.", ""); };
+  $("#rec-send").onclick = () => { S.recCancelado = false; try { S.rec?.stop(); } catch {} };
+}
+function limparBarraGravacao() {
+  clearInterval(S.recTimer); S.recTimer = null;
+  document.querySelector(".recbar")?.remove();
 }
 function renderMsg(m) {
   const hora = m.ts ? new Date(m.ts).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}) : "";
