@@ -4,12 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>IA Instructiva · Central</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23ffb020'/></svg>" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%232e9e6b'/></svg>" />
 </head>
 <body>
-  <div class="signalbar"></div>
-
   <div class="gate" id="gate">
     <div class="gate-card">
       <div class="brandmark">Escola Instructiva</div>
@@ -19,7 +20,7 @@
       <input type="text" id="login" placeholder="seu login" autocomplete="username" />
       <label>Senha</label>
       <input type="password" id="senha" placeholder="••••••••" autocomplete="current-password" />
-      <div style="margin-top:18px">
+      <div style="margin-top:20px">
         <button class="btn primary" id="btnLogin" style="width:100%; justify-content:center">Entrar</button>
       </div>
       <div id="gateErr" style="color:var(--danger); font-size:12.5px; margin-top:12px; min-height:16px"></div>
@@ -29,8 +30,8 @@
   <div class="app" id="app">
     <aside class="side">
       <div class="logo">
-        <div class="dot"></div>
-        <div><b>IA Instructiva</b><span>central de agentes</span></div>
+        <div class="mark">i</div>
+        <div><b>IA Instructiva</b><span>Central</span></div>
       </div>
       <nav id="nav"></nav>
       <div class="foot">
@@ -38,17 +39,20 @@
           <div class="avatar" id="uAvatar">?</div>
           <div class="who"><b id="uNome">—</b><span id="uRole">—</span></div>
         </div>
+        <div class="divider"></div>
+        <button class="navbtn" id="btnTema"><span class="ico" id="temaIco">☾</span> <span id="temaTxt">Modo escuro</span></button>
         <button class="navbtn" id="btnSair"><span class="ico">⏻</span> Sair</button>
       </div>
     </aside>
 
     <main class="main">
       <div class="topbar">
-        <div>
+        <div class="hi" id="greeting">Olá</div>
+        <div class="titlerow">
           <h2 id="viewTitle">Agentes</h2>
-          <div class="sub" id="viewSub"></div>
+          <div id="topActions"></div>
         </div>
-        <div id="topActions"></div>
+        <div class="sub" id="viewSub"></div>
       </div>
       <div class="content" id="content"></div>
     </main>

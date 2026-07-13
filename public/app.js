@@ -15,6 +15,18 @@ const iniciais = (n) => (String(n||"?").trim().split(/\s+/).map(p=>p[0]).slice(0
 const limparTimers = () => { S.timers.forEach(clearInterval); S.timers = []; };
 const mediaUrl = (p) => `/api/media/${p}?token=${encodeURIComponent(S.token)}`;
 
+// ── Tema claro/escuro ──
+function aplicarTema(t) {
+  const dark = t === "dark";
+  document.documentElement.dataset.theme = dark ? "dark" : "";
+  localStorage.setItem("ia_tema", dark ? "dark" : "light");
+  const i = document.querySelector("#temaIco"), x = document.querySelector("#temaTxt");
+  if (i) i.textContent = dark ? "☀" : "☾";
+  if (x) x.textContent = dark ? "Modo claro" : "Modo escuro";
+}
+function toggleTema() { aplicarTema(localStorage.getItem("ia_tema") === "dark" ? "light" : "dark"); }
+aplicarTema(localStorage.getItem("ia_tema") || "light");
+
 async function api(path, opts = {}) {
   const res = await fetch("/api" + path, {
     ...opts,
@@ -50,6 +62,7 @@ function iniciarApp(me) {
   $("#uAvatar").textContent = iniciais(S.usuario.nome);
   $("#uNome").textContent = S.usuario.nome;
   $("#uRole").textContent = S.usuario.role === "admin" ? "administrador" : "usuário";
+  $("#greeting").textContent = "Olá, " + String(S.usuario.nome || "").split(/\s+/)[0];
   montarNav();
   irPara("agentes");
 }
@@ -107,17 +120,23 @@ async function viewAgentes() {
 function cardAgente(a) {
   const admin = S.usuario.role === "admin";
   const c = el(`<div class="card ${a.ativo ? "" : "inativo"}">
-    <div class="head">
-      <div>
-        <h3>${esc(a.nome)} ${a.ativo ? "" : '<span class="tag-off">inativo</span>'}</h3>
-        <div class="inst">instância: ${esc(a.instancia)}</div>
-        ${admin && a.usuarioId ? `<div class="owner">dono: ${esc((S._usuarios||{})[a.usuarioId] || a.usuarioId.slice(0,8))}</div>` : ""}
+    <div class="strip"></div>
+    <div class="pad">
+      <div class="head">
+        <div class="headleft">
+          <div class="tile">${esc(iniciais(a.nome))}</div>
+          <div style="min-width:0">
+            <h3>${esc(a.nome)} ${a.ativo ? "" : '<span class="tag-off">inativo</span>'}</h3>
+            <div class="inst">instância: ${esc(a.instancia)}</div>
+            ${admin && a.usuarioId ? `<div class="owner">${esc((S._usuarios||{})[a.usuarioId] || "dono")}</div>` : ""}
+          </div>
+        </div>
+        <div class="state" data-state="${a.id}"><span class="led"></span> ···</div>
       </div>
-      <div class="state" data-state="${a.id}"><span class="led"></span> ···</div>
-    </div>
-    <div class="prompt">${esc(a.promptSistema)}</div>
-    <div class="meta"><span><b>modelo</b> ${esc(a.modelo || "padrão")}</span><span><b>abertura</b> ${a.mensagemInicial ? "fixa" : "por IA"}</span></div>
-    <div class="actions"></div></div>`);
+      <div class="prompt">${esc(a.promptSistema)}</div>
+      <div class="meta"><span><b>modelo</b> ${esc(a.modelo || "padrão")}</span><span><b>abertura</b> ${a.mensagemInicial ? "fixa" : "por IA"}</span></div>
+      <div class="actions"></div>
+    </div></div>`);
   const act = c.querySelector(".actions");
   const add = (t, cls, fn) => { const b = el(`<button class="btn small ${cls}">${t}</button>`); b.onclick = fn; act.appendChild(b); };
   add("Conectar", "wa", () => modalConexao(a));
@@ -258,7 +277,7 @@ async function abrirConversa(id, silencioso) {
 
   view.innerHTML = `
     <div class="vhead">
-      <div class="who"><div class="av avatar" style="width:40px;height:40px">${esc(iniciais(conv.nome||"?"))}</div>
+      <div class="who"><div class="av">${esc(iniciais(conv.nome||"?"))}</div>
         <div><div class="nm">${esc(conv.nome||"Sem nome")}</div><div class="num">${esc(conv.numero)} · ${esc(agente?.nome||"—")}</div></div></div>
       <label class="switch"><input type="checkbox" id="iaToggle" ${conv.iaAtiva?"checked":""} /><span style="font-size:12.5px;color:var(--muted)">IA respondendo</span></label>
     </div>
@@ -376,5 +395,6 @@ $("#btnLogin").onclick = async () => { $("#gateErr").textContent = ""; try { awa
 $("#senha").onkeydown = (e) => { if (e.key === "Enter") $("#btnLogin").click(); };
 $("#login").onkeydown = (e) => { if (e.key === "Enter") $("#senha").focus(); };
 $("#btnSair").onclick = logout;
+$("#btnTema").onclick = toggleTema;
 
 if (S.token) restaurarSessao();
