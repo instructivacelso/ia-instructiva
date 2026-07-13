@@ -171,11 +171,21 @@ function cardAgente(a) {
   const act = c.querySelector(".actions");
   const add = (t, cls, fn) => { const b = el(`<button class="btn small ${cls}">${t}</button>`); b.onclick = fn; act.appendChild(b); };
   add("Conectar", "wa", () => modalConexao(a));
+  add("Desconectar", "ghost", () => desconectarAgente(a));
   add(iaOff ? "Ligar IA" : "Pausar IA", iaOff ? "" : "ghost", () => toggleIaAgente(a));
   add("Editar", "ghost", () => abrirEditor(a));
   add("Webhook", "ghost", () => modalWebhook(a));
   add("Excluir", "danger ghost", () => excluirAgente(a));
   return c;
+}
+async function desconectarAgente(a) {
+  if (!confirm(`Desconectar o WhatsApp do agente "${a.nome}"?\n\nO agente e as conversas continuam salvos — só o número é desconectado. Você pode reconectar depois em "Conectar".`)) return;
+  try {
+    await api(`/agentes/${a.id}/logout`, { method: "POST" });
+    toast("WhatsApp desconectado.", "ok");
+    pintarEstado(a.id, "close");
+    viewAgentes();
+  } catch (e) { toast(e.message, "err"); }
 }
 async function toggleIaAgente(a) {
   const nova = a.iaAtiva === false; // se estava off, liga
