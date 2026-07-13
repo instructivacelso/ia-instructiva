@@ -306,9 +306,10 @@ input:focus, textarea:focus, select:focus { border-color: var(--brand); backgrou
 .placeholder { flex: 1; display: grid; place-items: center; color: var(--faint); font-size: 13px; }
 .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.9); display: none; align-items: center; justify-content: center; z-index: 80; padding: 30px; }
 
-/* ── Construtor de agente (tela cheia) ── */
-.editor { position: fixed; inset: 0; z-index: 60; background: var(--bg); display: none; flex-direction: column; }
+/* ── Construtor de agente (popup) ── */
+.editor { position: fixed; inset: 0; z-index: 60; background: rgba(35,30,20,.55); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; padding: 5vh 5vw; }
 .editor.open { display: flex; }
+.ed-box { width: 100%; max-width: 1000px; height: 86vh; max-height: 800px; background: var(--bg); border: 1px solid var(--line); border-radius: 20px; overflow: hidden; display: flex; flex-direction: column; box-shadow: var(--shadow-lg); }
 .ed-top { display: flex; align-items: center; gap: 16px; padding: 16px 24px; border-bottom: 1px solid var(--line); background: var(--sidebar); }
 .ed-top .ic { width: 46px; height: 46px; border-radius: 12px; background: var(--grad-brand); display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 16px; }
 .ed-top h2 { margin: 0; font-size: 18px; font-weight: 800; }

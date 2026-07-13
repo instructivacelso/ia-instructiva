@@ -424,7 +424,7 @@ async function viewConversas() {
     if (S.gravando) return; // não recarrega enquanto grava
     carregarConversas(true);
     if (S.convAtual && !document.querySelector("#emojibar.open")) abrirConversa(S.convAtual, true);
-  }, 6000));
+  }, 3000));
 }
 async function carregarConversas(silencioso) {
   const lista = $("#convitems"); if (!lista) return;
@@ -678,5 +678,33 @@ $("#senha").onkeydown = (e) => { if (e.key === "Enter") $("#btnLogin").click(); 
 $("#login").onkeydown = (e) => { if (e.key === "Enter") $("#senha").focus(); };
 $("#btnSair").onclick = logout;
 $("#btnTema").onclick = toggleTema;
+
+// ESC: fecha o que estiver aberto, ou sai da conversa selecionada
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (typeof fecharEditor === "function" && $("#editor").classList.contains("open")) { fecharEditor(); return; }
+  if ($("#overlay").classList.contains("open")) { fecharModal(); return; }
+  if ($("#lightbox").classList.contains("open")) { $("#lightbox").classList.remove("open"); return; }
+  if (S.view === "conversas" && S.convAtual) {
+    S.convAtual = null;
+    document.querySelectorAll(".convitem").forEach((n) => n.classList.remove("active"));
+    const v = $("#convview"); if (v) v.innerHTML = `<div class="placeholder">Selecione uma conversa</div>`;
+  }
+});
+
+// ESC: fecha o que estiver aberto, ou sai da conversa selecionada.
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (typeof S !== "undefined" && S.gravando) { try { pararGravacaoCancelar(); } catch {} return; }
+  if ($("#editor")?.classList.contains("open")) { if (typeof fecharEditor === "function") fecharEditor(); return; }
+  if ($("#overlay")?.classList.contains("open")) { fecharModal(); return; }
+  if ($("#lightbox")?.classList.contains("open")) { $("#lightbox").classList.remove("open"); return; }
+  if (S.view === "conversas" && S.convAtual) {
+    S.convAtual = null;
+    const v = $("#convview"); if (v) v.innerHTML = `<div class="placeholder">Selecione uma conversa</div>`;
+    document.querySelectorAll(".convitem").forEach((n) => n.classList.remove("active"));
+  }
+});
+function pararGravacaoCancelar() { S.recCancelado = true; try { S.rec?.stop(); } catch {} }
 
 if (S.token) restaurarSessao();

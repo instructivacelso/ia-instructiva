@@ -30,6 +30,7 @@ async function abrirEditor(agente = null) {
   E.kb = { curso: [], objecao: [], faq: [] };
   document.body.style.overflow = "hidden";
   $("#editor").classList.add("open");
+  $("#editor").onclick = (e) => { if (e.target.id === "editor") fecharEditor(); };
   renderEditor();
   if (E.agente.id) carregarKbEditor();
 }
@@ -53,7 +54,7 @@ function completude() {
 function renderEditor() {
   const a = E.agente;
   const c = completude();
-  $("#editor").innerHTML = `
+  $("#editor").innerHTML = `<div class="ed-box">
     <div class="ed-top">
       <div class="ic">${esc(iniciais(a.nome || "IA"))}</div>
       <div><h2>${E.novo ? "Criar agente" : "Editar agente"}</h2><div class="sub">${c.feitas}/7 seções preenchidas</div></div>
@@ -67,7 +68,8 @@ function renderEditor() {
       <div class="ed-nav" id="ed-nav"></div>
       <div class="ed-main" id="ed-main"></div>
       <div class="ed-preview" id="ed-preview"></div>
-    </div>`;
+    </div></div>`;
+  $("#editor").onclick = (e) => { if (e.target.id === "editor") fecharEditor(); };
   $("#ed-x").onclick = fecharEditor;
   $("#ed-save").onclick = salvarEditor;
   $("#ed-export").onclick = exportarAgente;
