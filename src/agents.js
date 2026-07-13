@@ -52,6 +52,7 @@ export function criarAgente(dados) {
     nome: dados.nome || "Novo agente",
     instancia,
     ativo: dados.ativo !== false,
+    iaAtiva: dados.iaAtiva !== false, // IA respondendo (por número); pode pausar
     promptSistema: dados.promptSistema || "Você é um atendente da Escola Instructiva.",
     mensagemInicial: dados.mensagemInicial || "", // vazio = IA gera a abertura
     modelo: dados.modelo || "", // vazio = usa o modelo padrão global

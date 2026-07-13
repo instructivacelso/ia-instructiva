@@ -10,6 +10,14 @@ import {
 } from "../conversations.js";
 import { evolution } from "../evolution.js";
 import { tipoMidia, salvarMidia, transcreverAudio, lerImagem } from "../media.js";
+import { db } from "../db.js";
+
+// IA está ligada? (global + agente). A conversa tem o próprio toggle à parte.
+function iaLigadaPara(agente) {
+  const s = db.getSettings();
+  const globalOn = s.iaGlobalAtiva !== false;
+  return globalOn && agente.iaAtiva !== false;
+}
 
 export const webhooks = express.Router();
 
@@ -59,6 +67,10 @@ webhooks.post("/lead/:agente", async (req, res) => {
     // Responde rápido pra landing page e dispara o contato em background.
     res.status(200).json({ ok: true, conversaId: conv.id });
 
+    if (!iaLigadaPara(agente)) {
+      adicionarMensagem(conv, "system-note", "IA pausada — lead registrado, sem contato automático.");
+      return;
+    }
     iniciarContato(agente, conv).catch((e) => {
       console.error("[lead] falha no primeiro contato:", e.message);
       adicionarMensagem(conv, "system-note", `Falha ao iniciar contato: ${e.message}`);
@@ -173,7 +185,8 @@ webhooks.post(["/evolution", "/evolution/*"], async (req, res) => {
 
     adicionarMensagem(conv, "user", texto, meta);
 
-    if (!conv.iaAtiva) return; // humano assumiu — IA não responde
+    // IA responde só se: ligada globalmente, ligada no agente e ligada na conversa.
+    if (!iaLigadaPara(agente) || !conv.iaAtiva) return;
 
     await responderMensagem(agente, conv).catch((e) => {
       console.error("[evolution] falha ao responder:", e.message);

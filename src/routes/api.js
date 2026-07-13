@@ -70,8 +70,10 @@ const soAdmin = (req, res, next) => {
 // ── Eu / status ──
 api.get("/me", (req, res) => {
   const c = config();
+  const s = db.getSettings();
   res.json({
     usuario: { id: req.usuario.id, nome: req.usuario.nome, login: req.usuario.login, role: req.usuario.role },
+    iaGlobalAtiva: s.iaGlobalAtiva !== false,
     config: {
       evolutionConfigurado: Boolean(c.evolutionUrl && c.evolutionApiKey),
       openaiConfigurado: Boolean(c.openaiApiKey),
@@ -80,6 +82,14 @@ api.get("/me", (req, res) => {
       modelo: c.openaiModel,
     },
   });
+});
+
+// ── Liga/desliga a IA no sistema inteiro (admin) ──
+api.post("/ia-global", soAdmin, (req, res) => {
+  const s = db.getSettings();
+  s.iaGlobalAtiva = Boolean(req.body?.ativa);
+  db.saveSettings(s);
+  res.json({ ok: true, iaGlobalAtiva: s.iaGlobalAtiva });
 });
 
 // ── Usuários (admin) ──

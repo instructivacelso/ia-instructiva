@@ -45,12 +45,13 @@ async function entrar(login, senha) {
   const res = await fetch("/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ login, senha }) });
   const d = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(d.erro || "Falha no login.");
-  S.token = d.token; S.usuario = d.usuario;
-  sessionStorage.setItem("ia_token", d.token);
+  S.token = d.token; sessionStorage.setItem("ia_token", d.token);
+  const me = await api("/me");
+  S.usuario = me.usuario; S.iaGlobal = me.iaGlobalAtiva;
   iniciarApp();
 }
 async function restaurarSessao() {
-  try { const me = await api("/me"); S.usuario = me.usuario; iniciarApp(me); }
+  try { const me = await api("/me"); S.usuario = me.usuario; S.iaGlobal = me.iaGlobalAtiva; iniciarApp(); }
   catch { logout(); }
 }
 function logout() {
@@ -63,8 +64,28 @@ function iniciarApp(me) {
   $("#uNome").textContent = S.usuario.nome;
   $("#uRole").textContent = S.usuario.role === "admin" ? "administrador" : "usuário";
   $("#greeting").textContent = "Olá, " + String(S.usuario.nome || "").split(/\s+/)[0];
+  renderGlobalIa();
   montarNav();
   irPara("agentes");
+}
+
+function renderGlobalIa() {
+  const box = document.querySelector("#globalIa");
+  if (!box) return;
+  if (S.usuario.role !== "admin") { box.innerHTML = ""; return; }
+  const on = S.iaGlobal !== false;
+  box.innerHTML = `<div class="iaglobal ${on ? "" : "off"}">
+    <span class="lbl"><span class="dotst"></span> IA ${on ? "ligada" : "pausada"}</span>
+    <button class="tgl">${on ? "Pausar tudo" : "Ligar tudo"}</button></div>`;
+  box.querySelector(".tgl").onclick = async () => {
+    const nova = !(S.iaGlobal !== false);
+    try {
+      const r = await api("/ia-global", { method: "POST", body: JSON.stringify({ ativa: nova }) });
+      S.iaGlobal = r.iaGlobalAtiva;
+      renderGlobalIa();
+      toast(S.iaGlobal ? "IA ligada em todos os números." : "IA pausada em tudo — nenhum número responde.", "ok");
+    } catch (e) { toast(e.message, "err"); }
+  };
 }
 
 function montarNav() {
@@ -119,6 +140,7 @@ async function viewAgentes() {
 }
 function cardAgente(a) {
   const admin = S.usuario.role === "admin";
+  const iaOff = a.iaAtiva === false;
   const c = el(`<div class="card ${a.ativo ? "" : "inativo"}">
     <div class="strip"></div>
     <div class="pad">
@@ -126,7 +148,7 @@ function cardAgente(a) {
         <div class="headleft">
           <div class="tile">${esc(iniciais(a.nome))}</div>
           <div style="min-width:0">
-            <h3>${esc(a.nome)} ${a.ativo ? "" : '<span class="tag-off">inativo</span>'}</h3>
+            <h3>${esc(a.nome)} ${a.ativo ? "" : '<span class="tag-off">inativo</span>'} ${iaOff ? '<span class="badge-pausada">IA pausada</span>' : ""}</h3>
             <div class="inst">instância: ${esc(a.instancia)}</div>
             ${admin && a.usuarioId ? `<div class="owner">${esc((S._usuarios||{})[a.usuarioId] || "dono")}</div>` : ""}
           </div>
@@ -140,10 +162,19 @@ function cardAgente(a) {
   const act = c.querySelector(".actions");
   const add = (t, cls, fn) => { const b = el(`<button class="btn small ${cls}">${t}</button>`); b.onclick = fn; act.appendChild(b); };
   add("Conectar", "wa", () => modalConexao(a));
+  add(iaOff ? "Ligar IA" : "Pausar IA", iaOff ? "" : "ghost", () => toggleIaAgente(a));
   add("Editar", "ghost", () => modalAgente(a));
   add("Webhook", "ghost", () => modalWebhook(a));
   add("Excluir", "danger ghost", () => excluirAgente(a));
   return c;
+}
+async function toggleIaAgente(a) {
+  const nova = a.iaAtiva === false; // se estava off, liga
+  try {
+    await api(`/agentes/${a.id}`, { method: "PATCH", body: JSON.stringify({ iaAtiva: nova }) });
+    toast(nova ? `IA ligada no número "${a.nome}".` : `IA pausada no número "${a.nome}".`, "ok");
+    viewAgentes();
+  } catch (e) { toast(e.message, "err"); }
 }
 function pintarEstado(id, estado) {
   const n = document.querySelector(`.state[data-state="${id}"]`); if (!n) return;
