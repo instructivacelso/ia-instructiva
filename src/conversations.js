@@ -4,6 +4,7 @@ import { evolution } from "./evolution.js";
 import { gerarResposta } from "./ai.js";
 import { chaveConversa, normalizarBR } from "./phone.js";
 import { salvarMidia } from "./media.js";
+import { buscarContexto } from "./knowledge.js";
 
 // Acha a conversa por (agente + telefone), tolerante ao 9º dígito.
 export function acharConversa(agenteId, numeroOuJid) {
@@ -101,8 +102,19 @@ export async function iniciarContato(agente, conv) {
 // RESPOSTA a uma mensagem recebida.
 export async function responderMensagem(agente, conv) {
   const contexto = montarContextoLead(conv);
+  // Busca na base de conhecimento os trechos relevantes pra última mensagem do lead.
+  const ultimaMsg = [...conv.historico].reverse().find((m) => m.role === "user")?.content || "";
+  let base = "";
+  try { base = await buscarContexto(agente.id, ultimaMsg); } catch {}
+  const promptFinal =
+    agente.promptSistema +
+    (contexto ? "\n\n" + contexto : "") +
+    (base
+      ? "\n\n[BASE DE CONHECIMENTO — use estas informações oficiais pra responder; " +
+        "se a resposta estiver aqui, siga à risca (preços, links, prazos). Não invente o que não está aqui.]\n" + base
+      : "");
   const texto = await gerarResposta({
-    promptSistema: agente.promptSistema + (contexto ? "\n\n" + contexto : ""),
+    promptSistema: promptFinal,
     historico: conv.historico.filter((m) => m.role === "user" || m.role === "assistant"),
     modelo: agente.modelo,
   });

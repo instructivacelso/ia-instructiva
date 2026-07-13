@@ -207,6 +207,15 @@ body.chatview .topbar { display: none; }
 .overlay { position: fixed; inset: 0; background: rgba(35,30,20,.42); backdrop-filter: blur(4px); display: none; align-items: flex-start; justify-content: center; padding: 44px 20px; z-index: 50; overflow: auto; }
 .overlay.open { display: flex; }
 .modal { width: 100%; max-width: 620px; background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 26px; box-shadow: var(--shadow-lg); }
+.modal.wide { max-width: 800px; }
+.kbitem { border: 1px solid var(--line); border-radius: 12px; padding: 13px 15px; margin-bottom: 10px; background: var(--card-2); }
+.kbtop { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.kbtop b { font-size: 13.5px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kbtag { font-size: 9.5px; letter-spacing: .5px; text-transform: uppercase; font-weight: 700; padding: 3px 8px; border-radius: 6px; color: #fff; background: var(--brand); flex: none; }
+.kbtag.qa { background: var(--blue); } .kbtag.bloco { background: var(--amber); } .kbtag.arquivo { background: var(--orange); } .kbtag.texto { background: var(--brand); }
+.kbstatus { font-size: 10.5px; color: var(--muted); flex: none; }
+.kbsnip { font-size: 12.5px; color: var(--muted); line-height: 1.5; margin-bottom: 10px; }
+.kbacts { display: flex; gap: 7px; }
 .modal h3 { margin: 0 0 2px; font-size: 18px; font-weight: 700; }
 .modal .desc { color: var(--muted); font-size: 12.5px; margin-bottom: 18px; }
 .modal .close { float: right; background: none; border: none; color: var(--muted); font-size: 22px; cursor: pointer; line-height: 1; }

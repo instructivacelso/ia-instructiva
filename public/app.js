@@ -169,6 +169,7 @@ function cardAgente(a) {
   const act = c.querySelector(".actions");
   const add = (t, cls, fn) => { const b = el(`<button class="btn small ${cls}">${t}</button>`); b.onclick = fn; act.appendChild(b); };
   add("Conectar", "wa", () => modalConexao(a));
+  add("Base", "ghost", () => modalConhecimento(a));
   add(iaOff ? "Ligar IA" : "Pausar IA", iaOff ? "" : "ghost", () => toggleIaAgente(a));
   add("Editar", "ghost", () => modalAgente(a));
   add("Webhook", "ghost", () => modalWebhook(a));
@@ -268,6 +269,94 @@ function modalWebhook(a) {
   $("#whCheck").onclick = async () => { status("consultando…"); try { const r = await api(`/agentes/${a.id}/webhook`); if (r.erro) return status("✗ " + r.erro, "var(--danger)"); if (r.confere) status("✓ Webhook certo e registrado.", "var(--ok)"); else if (r.registrado) status(`⚠ Registrado, mas em: ${r.registrado}`, "var(--signal)"); else status("✗ Nenhum webhook. Clique em Registrar.", "var(--danger)"); } catch (e) { status("✗ " + e.message, "var(--danger)"); } };
 }
 window.copiar = (t) => navigator.clipboard.writeText(t).then(() => toast("Copiado.", "ok"));
+
+// ── Base de conhecimento ──
+const KB_TIPOS = { texto: "Texto", bloco: "Bloco", qa: "Pergunta", arquivo: "Arquivo" };
+async function modalConhecimento(a) {
+  abrirModal(`<button class="close" data-close>×</button>
+    <h3>Base de conhecimento</h3>
+    <div class="desc">${esc(a.nome)} · a IA usa isso pra responder com preços, links e respostas certas.</div>
+    <div style="display:flex; gap:7px; flex-wrap:wrap; margin-bottom:16px">
+      <button class="btn small" id="kb-texto">+ Texto</button>
+      <button class="btn small" id="kb-bloco">+ Bloco</button>
+      <button class="btn small" id="kb-qa">+ Pergunta/Resposta</button>
+      <button class="btn small" id="kb-arquivo">+ Arquivo (PDF/txt)</button>
+      <button class="btn small ghost" id="kb-reindex" style="margin-left:auto">Reindexar</button>
+    </div>
+    <input type="file" id="kb-file" accept=".pdf,.txt,.md,.csv" hidden />
+    <div id="kb-lista"><div style="color:var(--muted)">Carregando…</div></div>`, true);
+  $("#kb-texto").onclick = () => kbForm(a, "texto");
+  $("#kb-bloco").onclick = () => kbForm(a, "bloco");
+  $("#kb-qa").onclick = () => kbForm(a, "qa");
+  $("#kb-arquivo").onclick = () => $("#kb-file").click();
+  $("#kb-file").onchange = async () => {
+    const f = $("#kb-file").files[0]; if (!f) return;
+    toast("Lendo e indexando arquivo…");
+    try {
+      const base64 = await fileToBase64(f);
+      await api(`/agentes/${a.id}/kb/arquivo`, { method: "POST", body: JSON.stringify({ base64, mimetype: f.type, fileName: f.name }) });
+      toast("Arquivo adicionado à base.", "ok"); carregarKb(a);
+    } catch (e) { toast(e.message, "err"); }
+    $("#kb-file").value = "";
+  };
+  $("#kb-reindex").onclick = async () => {
+    toast("Reindexando…");
+    try { const r = await api(`/agentes/${a.id}/kb/reindex`, { method: "POST" }); toast(`Base reindexada (${r.pedacos} trechos).`, "ok"); carregarKb(a); }
+    catch (e) { toast(e.message, "err"); }
+  };
+  carregarKb(a);
+}
+async function carregarKb(a) {
+  const box = $("#kb-lista"); if (!box) return;
+  let itens;
+  try { itens = await api(`/agentes/${a.id}/kb`); }
+  catch (e) { box.innerHTML = `<div style="color:var(--danger)">${esc(e.message)}</div>`; return; }
+  if (!itens.length) { box.innerHTML = `<div class="empty" style="padding:28px">Nada na base ainda. Adicione textos, blocos, perguntas ou um PDF.</div>`; return; }
+  box.innerHTML = "";
+  itens.forEach((it) => {
+    const titulo = it.tipo === "qa" ? it.pergunta : (it.titulo || (it.tipo === "texto" ? "Texto" : "Item"));
+    const snippet = (it.conteudo || "").slice(0, 120);
+    const el2 = el(`<div class="kbitem">
+      <div class="kbtop"><span class="kbtag ${it.tipo}">${esc(KB_TIPOS[it.tipo] || it.tipo)}</span>
+        <b>${esc(titulo)}</b>
+        <span class="kbstatus">${it.indexado ? `✓ ${it.qtdChunks} trechos` : "não indexado"}</span></div>
+      <div class="kbsnip">${esc(snippet)}${(it.conteudo || "").length > 120 ? "…" : ""}</div>
+      <div class="kbacts"></div></div>`);
+    const acts = el2.querySelector(".kbacts");
+    if (it.tipo !== "arquivo") { const e1 = el(`<button class="btn small ghost">Editar</button>`); e1.onclick = () => kbForm(a, it.tipo, it); acts.appendChild(e1); }
+    const e2 = el(`<button class="btn small danger ghost">Excluir</button>`); e2.onclick = async () => { if (!confirm("Excluir esse item da base?")) return; try { await api(`/kb/${it.id}`, { method: "DELETE" }); toast("Removido.", "ok"); carregarKb(a); } catch (e) { toast(e.message, "err"); } };
+    acts.appendChild(e2);
+    box.appendChild(el2);
+  });
+}
+function kbForm(a, tipo, item = null) {
+  const ed = Boolean(item);
+  const campos = tipo === "qa"
+    ? `<label>Pergunta do lead</label><input id="kb-p" value="${esc(item?.pergunta || "")}" placeholder="Quanto custa o curso?" />
+       <label>Resposta oficial</label><textarea id="kb-c" placeholder="O curso sai por 12x de R$ 97...">${esc(item?.conteudo || "")}</textarea>`
+    : tipo === "bloco"
+    ? `<label>Título do bloco</label><input id="kb-t" value="${esc(item?.titulo || "")}" placeholder="Preços e formas de pagamento" />
+       <label>Conteúdo</label><textarea id="kb-c" style="min-height:160px" placeholder="Escreva as informações...">${esc(item?.conteudo || "")}</textarea>`
+    : `<label>Texto</label><textarea id="kb-c" style="min-height:200px" placeholder="Cole aqui qualquer informação que a IA deve saber...">${esc(item?.conteudo || "")}</textarea>`;
+  abrirModal(`<button class="close" data-close>×</button>
+    <h3>${ed ? "Editar" : "Novo"} · ${esc(KB_TIPOS[tipo])}</h3>
+    <div class="desc">Depois de salvar, o sistema indexa automaticamente pra IA usar.</div>
+    ${campos}
+    <div class="footer"><button class="btn ghost" id="kb-voltar">Voltar</button><button class="btn primary" id="kb-salvar">${ed ? "Salvar" : "Adicionar"}</button></div>`, true);
+  $("#kb-voltar").onclick = () => modalConhecimento(a);
+  $("#kb-salvar").onclick = async () => {
+    const payload = { tipo, conteudo: $("#kb-c")?.value.trim() || "" };
+    if (tipo === "qa") payload.pergunta = $("#kb-p").value.trim();
+    if (tipo === "bloco") payload.titulo = $("#kb-t").value.trim();
+    if (!payload.conteudo || (tipo === "qa" && !payload.pergunta)) return toast("Preencha os campos.", "err");
+    toast("Salvando e indexando…");
+    try {
+      if (ed) await api(`/kb/${item.id}`, { method: "PATCH", body: JSON.stringify(payload) });
+      else await api(`/agentes/${a.id}/kb`, { method: "POST", body: JSON.stringify(payload) });
+      toast("Salvo na base.", "ok"); modalConhecimento(a);
+    } catch (e) { toast(e.message, "err"); }
+  };
+}
 
 // ───────── Conversas (chat WhatsApp) ─────────
 async function viewConversas() {
@@ -512,7 +601,7 @@ async function viewConfig() {
 }
 
 // ───────── Modal infra ─────────
-function abrirModal(html) { const m = $("#modal"); m.innerHTML = html; $("#overlay").classList.add("open"); m.querySelectorAll("[data-close]").forEach(b=>b.onclick=fecharModal); const inp = m.querySelector("input,textarea"); if (inp) setTimeout(()=>inp.focus(),50); }
+function abrirModal(html, wide) { const m = $("#modal"); m.className = "modal" + (wide ? " wide" : ""); m.innerHTML = html; $("#overlay").classList.add("open"); m.querySelectorAll("[data-close]").forEach(b=>b.onclick=fecharModal); const inp = m.querySelector("input,textarea"); if (inp) setTimeout(()=>inp.focus(),50); }
 function fecharModal() { $("#overlay").classList.remove("open"); }
 $("#overlay").onclick = (e) => { if (e.target.id === "overlay") fecharModal(); };
 $("#lightbox").onclick = () => $("#lightbox").classList.remove("open");

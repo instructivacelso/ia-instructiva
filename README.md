@@ -63,6 +63,15 @@ No primeiro acesso, entre com **login `admin`** e a senha do `ADMIN_PASSWORD`. C
 
 Cada usuário comum só enxerga e mexe **nos próprios agentes e conversas** — conecta o número dele e treina a IA dele, sem ver o dos outros.
 
+### Base de conhecimento (por agente)
+Cada agente tem a própria base — no card do agente, botão **Base**. A IA usa ela pra responder com preço, link e resposta certos (em vez de inventar). Quatro formas de alimentar:
+- **Texto** livre (cola qualquer informação)
+- **Bloco** com título (ex: "Preços e pagamento")
+- **Pergunta/Resposta** (resposta oficial pra uma dúvida comum)
+- **Arquivo**: PDF ou texto (.pdf, .txt, .md, .csv) — o texto é extraído automaticamente
+
+Como funciona por dentro (RAG): o conteúdo é quebrado em pedaços e indexado com *embeddings* da OpenAI. A cada mensagem do lead, o sistema busca só os trechos relevantes e injeta na resposta — então a base pode ter dezenas de páginas que o custo por mensagem continua baixo. Precisa da **chave da OpenAI** configurada. Se você adicionar conteúdo antes de configurar a chave, é só clicar em **Reindexar** depois.
+
 ### Áudio e imagem
 - **Áudio** que o cliente manda é baixado, transcrito (Groq se tiver a chave, senão OpenAI) e a IA responde ao conteúdo. No painel você **ouve o áudio** e vê a transcrição.
 - **Imagem** é baixada e "lida" pelo modelo de visão (OpenAI); a descrição entra na conversa pra IA entender, e a imagem aparece no chat (clique amplia).

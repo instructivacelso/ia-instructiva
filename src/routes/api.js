@@ -28,6 +28,15 @@ import {
   removerUsuario,
 } from "../users.js";
 import { caminhoAbsoluto } from "../media.js";
+import {
+  listarItens as kbListar,
+  criarItem as kbCriar,
+  atualizarItem as kbAtualizar,
+  removerItem as kbRemover,
+  acharItem as kbAchar,
+  reindexAgente as kbReindex,
+  extrairTextoArquivo,
+} from "../knowledge.js";
 
 export const api = express.Router();
 
@@ -236,6 +245,66 @@ api.post("/agentes/:id/logout", async (req, res) => {
   const agente = agenteAutorizado(req, res); if (!agente) return;
   try { await evolution.logout(agente.instancia); res.json({ ok: true }); }
   catch (e) { res.status(400).json({ ok: false, erro: e.message }); }
+});
+
+// ── Base de conhecimento (por agente) ──
+api.get("/agentes/:id/kb", (req, res) => {
+  const agente = agenteAutorizado(req, res); if (!agente) return;
+  res.json(kbListar(agente.id).map((i) => ({
+    id: i.id, tipo: i.tipo, titulo: i.titulo, pergunta: i.pergunta,
+    conteudo: i.conteudo, fonte: i.fonte, indexado: i.indexado, qtdChunks: i.qtdChunks || 0, criadoEm: i.criadoEm,
+  })));
+});
+
+api.post("/agentes/:id/kb", async (req, res) => {
+  const agente = agenteAutorizado(req, res); if (!agente) return;
+  try {
+    const b = req.body || {};
+    if (b.tipo === "qa" && (!b.pergunta || !b.conteudo)) return res.status(400).json({ ok: false, erro: "Pergunta e resposta são obrigatórias." });
+    if (b.tipo !== "qa" && !b.conteudo) return res.status(400).json({ ok: false, erro: "Conteúdo vazio." });
+    const item = await kbCriar(agente.id, b);
+    res.json({ ok: true, item });
+  } catch (e) { res.status(400).json({ ok: false, erro: e.message }); }
+});
+
+// Upload de arquivo (PDF / texto) vira item de conhecimento.
+api.post("/agentes/:id/kb/arquivo", async (req, res) => {
+  const agente = agenteAutorizado(req, res); if (!agente) return;
+  try {
+    let { base64, mimetype, fileName } = req.body || {};
+    if (!base64) return res.status(400).json({ ok: false, erro: "Arquivo vazio." });
+    base64 = String(base64).replace(/^data:[^;]+;base64,/, "");
+    const texto = await extrairTextoArquivo(base64, mimetype, fileName);
+    if (!texto.trim()) return res.status(400).json({ ok: false, erro: "Não consegui extrair texto desse arquivo." });
+    const item = await kbCriar(agente.id, { tipo: "arquivo", titulo: fileName || "Arquivo", conteudo: texto, fonte: fileName || "" });
+    res.json({ ok: true, item: { id: item.id, tipo: item.tipo, titulo: item.titulo, chars: texto.length } });
+  } catch (e) { res.status(400).json({ ok: false, erro: e.message }); }
+});
+
+// Reindexar toda a base do agente (ex: depois de configurar a chave da OpenAI).
+api.post("/agentes/:id/kb/reindex", async (req, res) => {
+  const agente = agenteAutorizado(req, res); if (!agente) return;
+  try { const n = await kbReindex(agente.id); res.json({ ok: true, pedacos: n }); }
+  catch (e) { res.status(400).json({ ok: false, erro: e.message }); }
+});
+
+// Editar / excluir item (confere dono via agente do item).
+function kbItemAutorizado(req, res) {
+  const item = kbAchar(req.params.itemId);
+  if (!item) { res.status(404).json({ ok: false, erro: "Item não encontrado." }); return null; }
+  const agente = acharAgente(item.agenteId);
+  if (!podeAcessarAgente(req.usuario, agente)) { res.status(403).json({ ok: false, erro: "Sem acesso." }); return null; }
+  return item;
+}
+api.patch("/kb/:itemId", async (req, res) => {
+  if (!kbItemAutorizado(req, res)) return;
+  try { res.json({ ok: true, item: await kbAtualizar(req.params.itemId, req.body || {}) }); }
+  catch (e) { res.status(400).json({ ok: false, erro: e.message }); }
+});
+api.delete("/kb/:itemId", (req, res) => {
+  if (!kbItemAutorizado(req, res)) return;
+  kbRemover(req.params.itemId);
+  res.json({ ok: true });
 });
 
 // ── Conversas (só as dos agentes do usuário) ──

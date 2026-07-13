@@ -57,4 +57,16 @@ export const db = {
   saveSettings(obj) {
     gravar("settings", obj);
   },
+  getConhecimento() {
+    return ler("conhecimento", []);
+  },
+  saveConhecimento(lista) {
+    gravar("conhecimento", lista);
+  },
+  getChunks() {
+    return ler("chunks", []);
+  },
+  saveChunks(lista) {
+    gravar("chunks", lista);
+  },
 };
