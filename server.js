@@ -43,9 +43,40 @@ app.use("/painel", express.static(path.join(__dirname, "public")));
 app.get("/", (req, res) => res.redirect("/painel"));
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`\n🤖 IA Instructiva rodando na porta ${PORT}`);
   console.log(`   Painel:  http://localhost:${PORT}/painel`);
   console.log(`   Webhook lead:      POST /webhook/lead/:agente`);
   console.log(`   Webhook evolution: POST /webhook/evolution\n`);
+
+  // Auto-registro do webhook: toda subida, re-registra pra todos os agentes.
+  // Garante que a URL correta (com https) esteja gravada no Evolution sem passo manual.
+  try {
+    const { config } = await import("./src/config.js");
+    const { listarAgentes } = await import("./src/agents.js");
+    const { evolution } = await import("./src/evolution.js");
+
+    const pub = config().publicUrl;
+    console.log(`[boot] PUBLIC_URL resolvida = "${pub || "(vazia!)"}"`);
+    if (!pub) {
+      console.log("[boot] sem PUBLIC_URL — webhooks NÃO registrados. Defina em Configurações.");
+      return;
+    }
+    const url = `${pub}/webhook/evolution`;
+    const agentes = listarAgentes();
+    if (!agentes.length) { console.log("[boot] nenhum agente ainda; nada a registrar."); return; }
+
+    console.log(`[boot] re-registrando webhook de ${agentes.length} agente(s) -> ${url}`);
+    for (const a of agentes) {
+      try {
+        const r = await evolution.setWebhook(a.instancia, url);
+        console.log(`[boot] ok "${a.instancia}" (formato ${r.formato})`);
+      } catch (e) {
+        console.warn(`[boot] falhou "${a.instancia}": ${e.message}`);
+      }
+    }
+    console.log("[boot] registro concluído.\n");
+  } catch (e) {
+    console.warn("[boot] auto-registro pulado:", e.message);
+  }
 });
