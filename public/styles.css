@@ -82,7 +82,7 @@ button { font-family: inherit; }
 .gate p { margin: 0 0 22px; color: var(--muted); font-size: 13px; }
 
 /* ── Layout ── */
-.app { display: none; height: 100vh; grid-template-columns: 256px 1fr; }
+.app { display: none; height: 100vh; grid-template-columns: 256px 1fr; overflow: hidden; }
 .app.visible { display: grid; }
 .side { background: var(--sidebar); border-right: 1px solid var(--line); padding: 22px 16px; display: flex; flex-direction: column; gap: 4px; height: 100vh; overflow-y: auto; }
 .side .logo { padding: 4px 8px 20px; display: flex; align-items: center; gap: 12px; }
@@ -202,8 +202,8 @@ input:focus, textarea:focus, select:focus { border-color: var(--brand); backgrou
 
 /* ── Conversas / chat ── */
 .content.chatmode { padding: 0; overflow: hidden; display: flex; }
-.convlayout { display: grid; grid-template-columns: 340px 1fr; gap: 0; flex: 1; height: 100%; border-top: 1px solid var(--line); overflow: hidden; background: var(--card); }
-.convlist { border-right: 1px solid var(--line); overflow: auto; background: var(--card); }
+.convlayout { display: grid; grid-template-columns: 340px 1fr; grid-template-rows: minmax(0, 1fr); gap: 0; flex: 1; min-height: 0; height: 100%; border-top: 1px solid var(--line); overflow: hidden; background: var(--card); }
+.convlist { border-right: 1px solid var(--line); overflow-y: auto; min-height: 0; background: var(--card); }
 .convlist .filtro { padding: 13px; border-bottom: 1px solid var(--line-soft); position: sticky; top: 0; background: var(--card); z-index: 2; }
 .convitem { padding: 13px 16px; border-bottom: 1px solid var(--line-soft); cursor: pointer; transition: .1s; display: flex; gap: 12px; align-items: center; }
 .convitem:hover { background: var(--card-2); }
@@ -219,17 +219,17 @@ input:focus, textarea:focus, select:focus { border-color: var(--brand); backgrou
 .badge.ia { color: var(--brand); background: var(--brand-dim); }
 .badge.humano { color: var(--orange); background: #fbeee3; }
 
-.convview { display: flex; flex-direction: column; background: var(--chat-bg); min-width: 0; position: relative; }
-.vhead { padding: 13px 20px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--card); z-index: 1; }
+.convview { display: flex; flex-direction: column; background: var(--chat-bg); min-width: 0; min-height: 0; overflow: hidden; position: relative; }
+.vhead { padding: 13px 20px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--card); z-index: 1; flex: none; }
 .vhead .who { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .vhead .who .av { width: 40px; height: 40px; border-radius: 50%; background: var(--grad-brand); color: #fff; display: grid; place-items: center; font-weight: 700; }
 .vhead .who .nm { font-weight: 700; font-size: 14.5px; }
 .vhead .who .num { font-size: 11px; color: var(--muted); font-family: var(--mono); }
 .switch { display: flex; align-items: center; gap: 9px; cursor: pointer; }
 .switch input { width: auto; accent-color: var(--brand); }
-.msgs { flex: 1; overflow: auto; padding: 22px 7%; display: flex; flex-direction: column; gap: 4px; }
+.msgs { flex: 1; min-height: 0; overflow-y: auto; padding: 20px 40px; display: flex; flex-direction: column; gap: 4px; }
 .daysep { align-self: center; background: var(--card); color: var(--muted); font-size: 11px; padding: 4px 12px; border-radius: 8px; margin: 12px 0; box-shadow: var(--shadow-sm); font-weight: 600; }
-.msg { max-width: 66%; padding: 7px 11px 6px; border-radius: 11px; font-size: 13.5px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; position: relative; box-shadow: var(--shadow-sm); color: var(--text); }
+.msg { max-width: 72%; padding: 7px 11px 6px; border-radius: 11px; font-size: 13.5px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; position: relative; box-shadow: var(--shadow-sm); color: var(--text); }
 .msg.user { align-self: flex-start; background: var(--bubble-in); border-top-left-radius: 3px; }
 .msg.assistant { align-self: flex-end; background: var(--bubble-out); border-top-right-radius: 3px; }
 .msg .t { font-size: 9.5px; color: var(--faint); float: right; margin: 4px 0 0 10px; position: relative; top: 3px; }
@@ -240,7 +240,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--brand); backgrou
 .msg .mediaimg { display: block; max-width: 240px; max-height: 260px; border-radius: 9px; margin: 3px 0 4px; cursor: pointer; }
 .msg .transcricao { font-size: 12px; color: var(--muted); border-left: 2px solid var(--line); padding-left: 8px; margin: 3px 0; font-style: italic; }
 .msg .mediatag { font-size: 9px; letter-spacing: .5px; text-transform: uppercase; color: var(--faint); display: block; margin-bottom: 3px; font-weight: 700; }
-.composer { padding: 11px 16px; border-top: 1px solid var(--line); display: flex; gap: 8px; align-items: flex-end; background: var(--card); position: relative; }
+.composer { padding: 11px 16px; border-top: 1px solid var(--line); display: flex; gap: 8px; align-items: flex-end; background: var(--card); position: relative; flex: none; }
 .composer textarea { min-height: 44px; max-height: 130px; border-radius: 22px; padding: 11px 17px; background: var(--card-2); }
 .composer .btn { border-radius: 22px; height: 44px; }
 .iconbtn { width: 40px; height: 44px; border: none; background: none; cursor: pointer; font-size: 19px; border-radius: 12px; color: var(--muted); display: grid; place-items: center; flex: none; transition: .12s; }
@@ -278,7 +278,8 @@ input:focus, textarea:focus, select:focus { border-color: var(--brand); backgrou
   .content.chatmode { display: block; }
   .topbar { padding: 20px; }
   .hirow { flex-wrap: wrap; }
-  .convlayout { grid-template-columns: 1fr; height: auto; }
+  .convlayout { grid-template-columns: 1fr; grid-template-rows: auto auto; height: auto; }
+  .convlist { max-height: 40vh; }
   .convview { min-height: 76vh; }
   .msgs { padding: 18px 16px; }
   .msg { max-width: 84%; }
