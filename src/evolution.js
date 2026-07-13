@@ -112,4 +112,25 @@ export const evolution = {
       });
     } catch { /* best-effort */ }
   },
+
+  // Baixa a mídia (áudio/imagem/etc) já descriptografada, em base64.
+  // Tenta os formatos de body que variam entre versões do Evolution.
+  async baixarMidiaBase64(instanceName, mensagemEvolution) {
+    const ep = `/chat/getBase64FromMediaMessage/${encodeURIComponent(instanceName)}`;
+    const tentativas = [
+      { message: mensagemEvolution },
+      { message: { key: mensagemEvolution.key } },
+      { key: mensagemEvolution.key },
+      { id: mensagemEvolution.key?.id },
+    ];
+    let ultimoErro;
+    for (const body of tentativas) {
+      try {
+        const r = await call("POST", ep, body);
+        const base64 = r.base64 || r.media || r.buffer || null;
+        if (base64) return { base64, mimetype: r.mimetype || null };
+      } catch (e) { ultimoErro = e; }
+    }
+    throw new Error(`Não consegui baixar a mídia: ${ultimoErro?.message || "sem base64 na resposta"}`);
+  },
 };

@@ -15,6 +15,19 @@ export function listarAgentes() {
   return db.getAgentes();
 }
 
+// Agentes de um usuário (admin vê todos).
+export function listarAgentesDoUsuario(usuario) {
+  const todos = db.getAgentes();
+  if (usuario?.role === "admin") return todos;
+  return todos.filter((a) => a.usuarioId === usuario?.id);
+}
+
+export function podeAcessarAgente(usuario, agente) {
+  if (!agente) return false;
+  if (usuario?.role === "admin") return true;
+  return agente.usuarioId === usuario?.id;
+}
+
 export function acharAgente(id) {
   return db.getAgentes().find((a) => a.id === id) || null;
 }
@@ -35,6 +48,7 @@ export function criarAgente(dados) {
 
   const novo = {
     id,
+    usuarioId: dados.usuarioId || null,
     nome: dados.nome || "Novo agente",
     instancia,
     ativo: dados.ativo !== false,

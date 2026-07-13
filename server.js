@@ -49,6 +49,12 @@ app.listen(PORT, async () => {
   console.log(`   Webhook lead:      POST /webhook/lead/:agente`);
   console.log(`   Webhook evolution: POST /webhook/evolution\n`);
 
+  // Cria o usuário admin (login "admin", senha = ADMIN_PASSWORD) se não existir.
+  try {
+    const { garantirAdmin } = await import("./src/users.js");
+    garantirAdmin();
+  } catch (e) { console.warn("[boot] admin:", e.message); }
+
   // Auto-registro do webhook: toda subida, re-registra pra todos os agentes.
   // Garante que a URL correta (com https) esteja gravada no Evolution sem passo manual.
   try {

@@ -32,6 +32,12 @@ function gravar(nome, dados) {
 }
 
 export const db = {
+  getUsuarios() {
+    return ler("usuarios", []);
+  },
+  saveUsuarios(lista) {
+    gravar("usuarios", lista);
+  },
   getAgentes() {
     return ler("agentes", []);
   },

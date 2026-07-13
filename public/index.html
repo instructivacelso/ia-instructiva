@@ -10,36 +10,34 @@
 <body>
   <div class="signalbar"></div>
 
-  <!-- Login -->
   <div class="gate" id="gate">
     <div class="gate-card">
       <div class="brandmark">Escola Instructiva</div>
       <h1>Central de IA</h1>
-      <p>Orquestrador de agentes de WhatsApp.</p>
-      <label>Senha de acesso</label>
+      <p>Entre com seu usuário pra gerenciar seus agentes.</p>
+      <label>Usuário</label>
+      <input type="text" id="login" placeholder="seu login" autocomplete="username" />
+      <label>Senha</label>
       <input type="password" id="senha" placeholder="••••••••" autocomplete="current-password" />
-      <div style="margin-top:16px">
+      <div style="margin-top:18px">
         <button class="btn primary" id="btnLogin" style="width:100%; justify-content:center">Entrar</button>
       </div>
       <div id="gateErr" style="color:var(--danger); font-size:12.5px; margin-top:12px; min-height:16px"></div>
     </div>
   </div>
 
-  <!-- App -->
   <div class="app" id="app">
     <aside class="side">
       <div class="logo">
         <div class="dot"></div>
-        <div>
-          <b>IA Instructiva</b>
-          <span>central de agentes</span>
-        </div>
+        <div><b>IA Instructiva</b><span>central de agentes</span></div>
       </div>
-      <button class="navbtn active" data-view="agentes"><span class="ico">◆</span> Agentes</button>
-      <button class="navbtn" data-view="conversas"><span class="ico">▤</span> Conversas</button>
-      <button class="navbtn" data-view="config"><span class="ico">⚙</span> Configurações</button>
+      <nav id="nav"></nav>
       <div class="foot">
-        <div class="status" id="sysStatus">verificando…</div>
+        <div class="userchip">
+          <div class="avatar" id="uAvatar">?</div>
+          <div class="who"><b id="uNome">—</b><span id="uRole">—</span></div>
+        </div>
         <button class="navbtn" id="btnSair"><span class="ico">⏻</span> Sair</button>
       </div>
     </aside>
@@ -48,7 +46,7 @@
       <div class="topbar">
         <div>
           <h2 id="viewTitle">Agentes</h2>
-          <div class="sub" id="viewSub">Cada agente controla um número de WhatsApp.</div>
+          <div class="sub" id="viewSub"></div>
         </div>
         <div id="topActions"></div>
       </div>
@@ -56,9 +54,8 @@
     </main>
   </div>
 
-  <!-- Overlays -->
   <div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
-
+  <div class="lightbox" id="lightbox"><img id="lightboxImg" src="" alt="" /></div>
   <div class="toast" id="toast"></div>
 
   <script src="app.js"></script>

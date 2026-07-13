@@ -45,15 +45,28 @@ npm start
 
 | Variável | Pra quê |
 |---|---|
-| `ADMIN_PASSWORD` | senha do painel |
+| `ADMIN_PASSWORD` | senha do usuário **admin** (login: `admin`) no primeiro acesso |
 | `PUBLIC_URL` | a URL pública do serviço (ex: `https://ia-instructiva-production.up.railway.app`) |
 | `EVOLUTION_URL` | URL do seu servidor Evolution |
 | `EVOLUTION_API_KEY` | apikey global do Evolution |
-| `OPENAI_API_KEY` | chave da OpenAI |
+| `OPENAI_API_KEY` | chave da OpenAI (respostas + leitura de imagem) |
 | `OPENAI_MODEL` | opcional, padrão `gpt-4o-mini` |
+| `GROQ_API_KEY` | opcional — transcrição de áudio (se vazio, usa a OpenAI) |
+| `SESSION_SECRET` | opcional — segredo dos tokens de login (senão usa o ADMIN_PASSWORD) |
 
-> Dá pra configurar Evolution/OpenAI/PUBLIC_URL **direto no painel** (aba Configurações)
-> sem redeploy. Só `ADMIN_PASSWORD` precisa vir do ambiente.
+> As chaves (Evolution/OpenAI/Groq) também dão pra configurar **no painel** (aba Configurações, só admin), sem redeploy.
+
+### Login e usuários
+No primeiro acesso, entre com **login `admin`** e a senha do `ADMIN_PASSWORD`. Como admin você:
+- cria outros usuários (Celso, Bruno…) na aba **Usuários**;
+- vê **todos** os agentes e conversas e mexe nas **Configurações**.
+
+Cada usuário comum só enxerga e mexe **nos próprios agentes e conversas** — conecta o número dele e treina a IA dele, sem ver o dos outros.
+
+### Áudio e imagem
+- **Áudio** que o cliente manda é baixado, transcrito (Groq se tiver a chave, senão OpenAI) e a IA responde ao conteúdo. No painel você **ouve o áudio** e vê a transcrição.
+- **Imagem** é baixada e "lida" pelo modelo de visão (OpenAI); a descrição entra na conversa pra IA entender, e a imagem aparece no chat (clique amplia).
+- Os arquivos ficam em `data/media/` — por isso o **Volume em `/app/data`** também guarda as mídias.
 
 O Railway persiste `data/` se você adicionar um **Volume** montado em `/app/data`
 (recomendado, senão os agentes/conversas se perdem em cada deploy).

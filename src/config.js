@@ -20,5 +20,6 @@ export function config() {
     evolutionApiKey: s.evolutionApiKey || process.env.EVOLUTION_API_KEY || "",
     openaiApiKey: s.openaiApiKey || process.env.OPENAI_API_KEY || "",
     openaiModel: s.openaiModel || process.env.OPENAI_MODEL || "gpt-4o-mini",
+    groqApiKey: s.groqApiKey || process.env.GROQ_API_KEY || "",
   };
 }

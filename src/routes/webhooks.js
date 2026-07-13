@@ -8,6 +8,8 @@ import {
   iniciarContato,
   responderMensagem,
 } from "../conversations.js";
+import { evolution } from "../evolution.js";
+import { tipoMidia, salvarMidia, transcreverAudio, lerImagem } from "../media.js";
 
 export const webhooks = express.Router();
 
@@ -115,7 +117,8 @@ webhooks.post(["/evolution", "/evolution/*"], async (req, res) => {
       return;
     }
 
-    const texto = extrairTexto(data.message);
+    let texto = extrairTexto(data.message);
+    let meta = {};
     const pushName = data.pushName || "";
 
     let conv = acharConversa(agente.id, remoteJid);
@@ -131,14 +134,44 @@ webhooks.post(["/evolution", "/evolution/*"], async (req, res) => {
     conv.remoteJid = remoteJid;
     if (!conv.nome && pushName) conv.nome = pushName;
 
+    // Sem texto = provavelmente mídia. Baixa, salva e "entende".
     if (!texto) {
-      // Mídia (áudio/imagem/etc): registra e avisa. Transcrição fica pra fase 2.
-      adicionarMensagem(conv, "system-note", "[lead enviou mídia não-textual]");
-      salvarConversa(conv);
-      return;
+      const mid = tipoMidia(data.message);
+      if (!mid) {
+        adicionarMensagem(conv, "system-note", "[mensagem sem texto e sem mídia reconhecida]");
+        salvarConversa(conv);
+        return;
+      }
+      try {
+        const baixado = await evolution.baixarMidiaBase64(agente.instancia, data);
+        const mimeFinal = baixado.mimetype || mid.mimetype;
+        const rel = salvarMidia(conv.id, baixado.base64, mimeFinal);
+        meta = { mediaTipo: mid.tipo, mediaPath: rel, mimetype: mimeFinal };
+
+        if (mid.tipo === "audio") {
+          const t = await transcreverAudio(baixado.base64, mimeFinal);
+          texto = t || "[áudio sem fala reconhecida]";
+          meta.transcricao = t;
+          console.log(`[midia] áudio transcrito (${texto.length} chars)`);
+        } else if (mid.tipo === "imagem" || mid.tipo === "sticker") {
+          const desc = await lerImagem(baixado.base64, mimeFinal, conv.origem || "");
+          texto = (mid.legenda ? mid.legenda + "\n\n" : "") + "[imagem recebida] " + desc;
+          meta.transcricao = desc;
+          console.log(`[midia] imagem lida (${desc.length} chars)`);
+        } else {
+          // vídeo / documento: guarda o arquivo, usa legenda/nome como texto.
+          texto = mid.legenda || `[${mid.tipo} recebido${mid.nome ? ": " + mid.nome : ""}]`;
+        }
+      } catch (e) {
+        console.error("[midia] falha:", e.message);
+        adicionarMensagem(conv, "user", `[${mid.tipo} recebido]`, { mediaTipo: mid.tipo, erro: e.message });
+        adicionarMensagem(conv, "system-note", `Não consegui processar a mídia: ${e.message}`);
+        salvarConversa(conv);
+        return;
+      }
     }
 
-    adicionarMensagem(conv, "user", texto);
+    adicionarMensagem(conv, "user", texto, meta);
 
     if (!conv.iaAtiva) return; // humano assumiu — IA não responde
 
