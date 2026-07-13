@@ -67,7 +67,7 @@ async function iniciarApp(me) {
   try { S.agentes = await api("/agentes"); } catch {}
   renderBulkIa();
   montarNav();
-  irPara("agentes");
+  irPara("dashboard");
 }
 
 // Botão que pausa/liga a IA de TODOS os MEUS números de uma vez.
@@ -95,13 +95,14 @@ function renderBulkIa() {
 function montarNav() {
   const admin = S.usuario.role === "admin";
   const itens = [
-    { v: "agentes", ico: "◆", txt: "Agentes" },
-    { v: "conversas", ico: "▤", txt: "Conversas" },
-    ...(admin ? [{ v: "usuarios", ico: "◕", txt: "Usuários" }, { v: "config", ico: "⚙", txt: "Configurações" }] : []),
+    { v: "dashboard", txt: "Painel" },
+    { v: "agentes", txt: "Agentes" },
+    { v: "conversas", txt: "Conversas" },
+    ...(admin ? [{ v: "usuarios", txt: "Usuários" }, { v: "config", txt: "Configurações" }] : []),
   ];
   const nav = $("#nav"); nav.innerHTML = "";
   itens.forEach((it) => {
-    const b = el(`<button class="navbtn" data-view="${it.v}"><span class="ico">${it.ico}</span> ${it.txt}</button>`);
+    const b = el(`<button class="navbtn" data-view="${it.v}">${it.txt}</button>`);
     b.onclick = () => irPara(it.v);
     nav.appendChild(b);
   });
@@ -114,6 +115,7 @@ function irPara(view) {
   $("#content").classList.remove("chatmode");
   document.body.classList.remove("chatview");
   const T = {
+    dashboard: ["Painel", "Visão geral em tempo real."],
     agentes: ["Agentes", "Cada agente é um número de WhatsApp com sua própria IA."],
     conversas: ["Conversas", "Acompanhe e assuma quando precisar."],
     usuarios: ["Usuários", "Quem tem acesso à central."],
@@ -122,7 +124,7 @@ function irPara(view) {
   $("#viewTitle").textContent = T[view][0];
   $("#viewSub").textContent = T[view][1];
   $("#topActions").innerHTML = "";
-  ({ agentes: viewAgentes, conversas: viewConversas, usuarios: viewUsuarios, config: viewConfig }[view])();
+  ({ dashboard: viewDashboard, agentes: viewAgentes, conversas: viewConversas, usuarios: viewUsuarios, config: viewConfig }[view])();
 }
 
 // ───────── Agentes ─────────
@@ -357,7 +359,53 @@ function kbForm(a, tipo, item = null) {
   };
 }
 
-// ───────── Conversas (chat WhatsApp) ─────────
+// ───────── Painel / Dashboard ─────────
+async function viewDashboard() {
+  const content = $("#content");
+  content.innerHTML = `<div style="color:var(--muted)">Carregando…</div>`;
+  let d;
+  try { d = await api("/dashboard"); }
+  catch (e) { content.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+
+  const card = (grad, icone, label, num, sub) => `
+    <div class="statcard"><div class="strip" style="background:${grad}"></div>
+      <div class="pad"><div class="tile" style="background:${grad}">${icone}</div>
+        <div class="lbl">${label}</div><div class="num">${num}</div><div class="subn">${sub}</div></div></div>`;
+
+  const svg = (p) => `<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+  const ICO = {
+    conversas: svg('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'),
+    ia: svg('<rect x="3" y="8" width="18" height="12" rx="2"/><path d="M12 8V4M8 3h8M8 13h.01M16 13h.01"/>'),
+    humano: svg('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'),
+    lead: svg('<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M18 18l-2.5-2.5M6 18l2.5-2.5M18 6l-2.5 2.5"/>'),
+    msg: svg('<path d="M4 4h16v12H5.2L4 17.2z"/><path d="M8 9h8M8 12h5"/>'),
+    agente: svg('<rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/>'),
+  };
+  const gBrand = "var(--grad-brand)", gBlue = "var(--grad-blue)", gOrange = "var(--grad-orange)";
+  const c = d.conversas, ag = d.agentes;
+
+  const cards = [
+    card(gBrand, ICO.conversas, "Conversas", c.total, `${c.iaAtiva} com IA · ${c.humano} com você`),
+    card(gBlue, ICO.ia, "IA atendendo agora", c.iaAtiva, `de ${c.total} conversa(s)`),
+    card(gOrange, ICO.humano, "Você assumiu", c.humano, "conversas em modo manual"),
+    card(gBrand, ICO.lead, "Leads hoje", c.leadsHoje, "novos contatos hoje"),
+    card(gBlue, ICO.msg, "Mensagens hoje", c.msgsHoje, "trocadas nas conversas"),
+    card(gOrange, ICO.agente, "Agentes", ag.total, `${ag.iaLigada} com IA ligada`),
+  ].join("");
+
+  const linhas = d.porAgente.length
+    ? d.porAgente.map((a) => `<tr>
+        <td><b>${esc(a.nome)}</b> <span class="mono-in" style="color:var(--faint);font-size:11px">${esc(a.instancia)}</span></td>
+        <td>${a.conversas} conversa(s)</td>
+        <td><span class="pill ${a.iaAtiva ? "admin" : "user"}">${a.iaAtiva ? "IA ligada" : "IA pausada"}</span></td>
+      </tr>`).join("")
+    : `<tr><td colspan="3" style="color:var(--muted)">Nenhum agente ainda.</td></tr>`;
+
+  content.innerHTML = `
+    <div class="dash">${cards}</div>
+    <h4 style="margin:28px 0 12px;font-size:15px;font-weight:700">Por agente</h4>
+    <table class="tbl"><thead><tr><th>Agente</th><th>Conversas</th><th>Status</th></tr></thead><tbody>${linhas}</tbody></table>`;
+}
 async function viewConversas() {
   try { S.agentes = await api("/agentes"); } catch {}
   const content = $("#content");
@@ -548,7 +596,7 @@ async function viewUsuarios() {
   const linhas = us.map(u=>`<tr>
     <td><div style="display:flex;align-items:center;gap:10px"><div class="avatar" style="width:30px;height:30px;font-size:12px">${esc(iniciais(u.nome))}</div>${esc(u.nome)}</div></td>
     <td class="mono-in">${esc(u.login)}</td>
-    <td><span class="pill ${u.role}">${u.role}</span></td>
+    <td><span class="pill ${u.role}">${u.role}</span> ${u.senhaDefinida===false?'<span class="pill user" style="color:var(--amber)">aguardando 1º acesso</span>':""}</td>
     <td style="text-align:right"><button class="btn small ghost" data-edit="${u.id}">Editar</button> ${u.id===S.usuario.id?"":`<button class="btn small danger ghost" data-del="${u.id}">Excluir</button>`}</td>
   </tr>`).join("");
   content.innerHTML = `<table class="tbl"><thead><tr><th>Nome</th><th>Login</th><th>Papel</th><th></th></tr></thead><tbody>${linhas}</tbody></table>`;
@@ -558,17 +606,17 @@ async function viewUsuarios() {
 function modalUsuario(u=null) {
   const ed = Boolean(u);
   abrirModal(`<button class="close" data-close>×</button><h3>${ed?"Editar usuário":"Novo usuário"}</h3>
-    <div class="desc">${ed?"Deixe a senha vazia pra manter a atual.":"A pessoa entra com esse login e senha."}</div>
+    <div class="desc">${ed?"Deixe a senha vazia pra manter a atual.":"A pessoa entra com o login e cria a própria senha no primeiro acesso."}</div>
     <label>Nome</label><input id="u-nome" value="${esc(u?.nome||"")}" placeholder="Bruno" />
     ${ed?"":`<label>Login</label><input id="u-login" class="mono-in" placeholder="bruno" />`}
-    <label>Senha ${ed?'<span class="hint">(opcional)</span>':""}</label><input id="u-senha" type="password" placeholder="${ed?"••••••":"defina uma senha"}" />
+    <label>Senha ${ed?'<span class="hint">(opcional)</span>':'<span class="hint">(opcional — deixe vazio pra pessoa criar no 1º acesso)</span>'}</label><input id="u-senha" type="password" placeholder="${ed?"••••••":"deixe vazio ou defina uma"}" />
     <label>Papel</label><select id="u-role"><option value="user" ${u?.role!=="admin"?"selected":""}>Usuário (só os agentes dele)</option><option value="admin" ${u?.role==="admin"?"selected":""}>Admin (vê tudo + configurações)</option></select>
     <div class="footer"><button class="btn ghost" data-close>Cancelar</button><button class="btn primary" id="u-salvar">${ed?"Salvar":"Criar"}</button></div>`);
   $("#u-salvar").onclick = async () => {
     const p = { nome: $("#u-nome").value.trim(), role: $("#u-role").value };
     const senha = $("#u-senha").value; if (senha) p.senha = senha;
-    if (!ed) { p.login = $("#u-login").value.trim(); if (!p.login || !senha) return toast("Login e senha são obrigatórios.","err"); }
-    try { if (ed) await api(`/usuarios/${u.id}`,{method:"PATCH",body:JSON.stringify(p)}); else await api("/usuarios",{method:"POST",body:JSON.stringify(p)}); toast(ed?"Usuário atualizado.":"Usuário criado.","ok"); fecharModal(); viewUsuarios(); }
+    if (!ed) { p.login = $("#u-login").value.trim(); if (!p.login) return toast("O login é obrigatório.","err"); }
+    try { if (ed) await api(`/usuarios/${u.id}`,{method:"PATCH",body:JSON.stringify(p)}); else await api("/usuarios",{method:"POST",body:JSON.stringify(p)}); toast(ed?"Usuário atualizado.":"Usuário criado. Passe o login pra pessoa — ela cria a senha no 1º acesso.","ok"); fecharModal(); viewUsuarios(); }
     catch (e) { toast(e.message,"err"); }
   };
 }

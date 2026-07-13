@@ -94,6 +94,28 @@ api.get("/me", (req, res) => {
   });
 });
 
+// ── Painel / métricas ──
+api.get("/dashboard", (req, res) => {
+  const meusAgentes = listarAgentesDoUsuario(req.usuario);
+  const ids = new Set(meusAgentes.map((a) => a.id));
+  const convs = listarConversas().filter((c) => ids.has(c.agenteId));
+  const hoje = new Date().toDateString();
+  const ehHoje = (ts) => ts && new Date(ts).toDateString() === hoje;
+  let msgsHoje = 0, leadsHoje = 0, iaAtiva = 0, humano = 0;
+  convs.forEach((c) => {
+    if (c.iaAtiva) iaAtiva++; else humano++;
+    if (ehHoje(c.criadaEm)) leadsHoje++;
+    (c.historico || []).forEach((m) => { if (m.role !== "system-note" && ehHoje(m.ts)) msgsHoje++; });
+  });
+  res.json({
+    agentes: { total: meusAgentes.length, iaLigada: meusAgentes.filter((a) => a.iaAtiva !== false).length },
+    conversas: { total: convs.length, iaAtiva, humano, leadsHoje, msgsHoje },
+    porAgente: meusAgentes
+      .map((a) => ({ nome: a.nome, instancia: a.instancia, iaAtiva: a.iaAtiva !== false, conversas: convs.filter((c) => c.agenteId === a.id).length }))
+      .sort((x, y) => y.conversas - x.conversas),
+  });
+});
+
 // ── Liga/pausa a IA de TODOS os meus números de uma vez ──
 api.post("/agentes/ia-bulk", (req, res) => {
   const ativa = Boolean(req.body?.ativa);

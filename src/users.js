@@ -57,20 +57,34 @@ export function acharPorLogin(login) {
 
 export function autenticar(login, senha) {
   const u = acharPorLogin(login);
-  if (!u || !conferirSenha(senha, u.senha)) return null;
+  if (!u) return null;
+  // Primeiro acesso: se a senha ainda não foi definida, a que a pessoa digitar
+  // agora vira a senha dela (ela cria no primeiro login).
+  if (u.senhaDefinida === false) {
+    if (!senha) return null;
+    const usuarios = db.getUsuarios();
+    const i = usuarios.findIndex((x) => x.id === u.id);
+    usuarios[i].senha = hashSenha(senha);
+    usuarios[i].senhaDefinida = true;
+    db.saveUsuarios(usuarios);
+    return usuarios[i];
+  }
+  if (!conferirSenha(senha, u.senha)) return null;
   return u;
 }
 
 export function criarUsuario({ nome, login, senha, role = "user" }) {
   const usuarios = db.getUsuarios();
   const l = String(login || "").trim().toLowerCase();
-  if (!l || !senha) throw new Error("Login e senha são obrigatórios.");
+  if (!l) throw new Error("O login é obrigatório.");
   if (usuarios.some((u) => u.login === l)) throw new Error(`Já existe o login "${l}".`);
+  const temSenha = Boolean(senha);
   const novo = {
     id: crypto.randomUUID(),
     nome: nome || login,
     login: l,
-    senha: hashSenha(senha),
+    senha: temSenha ? hashSenha(senha) : "",
+    senhaDefinida: temSenha, // false = pessoa cria a senha no primeiro acesso
     role: role === "admin" ? "admin" : "user",
     criadoEm: new Date().toISOString(),
   };
@@ -85,7 +99,7 @@ export function atualizarUsuario(id, { nome, senha, role }) {
   if (i === -1) throw new Error("Usuário não encontrado.");
   if (nome !== undefined) usuarios[i].nome = nome;
   if (role !== undefined) usuarios[i].role = role === "admin" ? "admin" : "user";
-  if (senha) usuarios[i].senha = hashSenha(senha);
+  if (senha) { usuarios[i].senha = hashSenha(senha); usuarios[i].senhaDefinida = true; }
   db.saveUsuarios(usuarios);
   return publico(usuarios[i]);
 }
@@ -104,5 +118,5 @@ export function garantirAdmin() {
 }
 
 function publico(u) {
-  return { id: u.id, nome: u.nome, login: u.login, role: u.role, criadoEm: u.criadoEm };
+  return { id: u.id, nome: u.nome, login: u.login, role: u.role, senhaDefinida: u.senhaDefinida !== false, criadoEm: u.criadoEm };
 }
