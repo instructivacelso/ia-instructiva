@@ -113,6 +113,31 @@ export const evolution = {
     } catch { /* best-effort */ }
   },
 
+  // Envia mídia (imagem/vídeo/documento) a partir de base64.
+  async enviarMidia(instanceName, number, { mediatype, mimetype, media, caption, fileName }) {
+    const ep = `/message/sendMedia/${encodeURIComponent(instanceName)}`;
+    const limpo = String(media || "").replace(/^data:[^;]+;base64,/, "");
+    const v2 = { number, mediatype, mimetype, media: limpo, caption: caption || "", fileName: fileName || "arquivo" };
+    try {
+      return await call("POST", ep, v2);
+    } catch (e2) {
+      // v1: envelope mediaMessage
+      const v1 = { number, mediaMessage: { mediatype, media: limpo, caption: caption || "", fileName: fileName || "arquivo" } };
+      return await call("POST", ep, v1);
+    }
+  },
+
+  // Envia áudio como nota de voz (PTT).
+  async enviarAudio(instanceName, number, audioBase64) {
+    const limpo = String(audioBase64 || "").replace(/^data:[^;]+;base64,/, "");
+    const ep = `/message/sendWhatsAppAudio/${encodeURIComponent(instanceName)}`;
+    try {
+      return await call("POST", ep, { number, audio: limpo });
+    } catch (e2) {
+      return await call("POST", ep, { number, audioMessage: { audio: limpo } });
+    }
+  },
+
   // Baixa a mídia (áudio/imagem/etc) já descriptografada, em base64.
   // Tenta os formatos de body que variam entre versões do Evolution.
   async baixarMidiaBase64(instanceName, mensagemEvolution) {

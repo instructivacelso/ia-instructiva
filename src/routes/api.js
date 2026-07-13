@@ -16,6 +16,7 @@ import {
   acharConversaPorId,
   salvarConversa,
   enviarManual,
+  enviarMidiaManual,
 } from "../conversations.js";
 import {
   autenticar,
@@ -280,6 +281,20 @@ api.post("/conversas/:id/mensagem", async (req, res) => {
     if (!texto) return res.status(400).json({ ok: false, erro: "Texto vazio." });
     if (!r.agente) return res.status(400).json({ ok: false, erro: "Agente da conversa não existe." });
     await enviarManual(r.agente, r.conv, texto);
+    res.json({ ok: true });
+  } catch (e) { res.status(400).json({ ok: false, erro: e.message }); }
+});
+
+// Envia mídia (imagem / áudio / documento) pela conversa.
+api.post("/conversas/:id/midia", async (req, res) => {
+  const r = conversaAutorizada(req, res); if (!r) return;
+  try {
+    if (!r.agente) return res.status(400).json({ ok: false, erro: "Agente da conversa não existe." });
+    let { base64, mimetype, tipo, fileName, caption } = req.body || {};
+    if (!base64) return res.status(400).json({ ok: false, erro: "Arquivo vazio." });
+    base64 = String(base64).replace(/^data:[^;]+;base64,/, "");
+    tipo = ["image", "audio", "video", "document"].includes(tipo) ? tipo : "document";
+    await enviarMidiaManual(r.agente, r.conv, { base64, mimetype, tipo, fileName, caption });
     res.json({ ok: true });
   } catch (e) { res.status(400).json({ ok: false, erro: e.message }); }
 });

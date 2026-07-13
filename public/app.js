@@ -107,6 +107,7 @@ function irPara(view) {
   S.view = view; limparTimers();
   document.querySelectorAll(".navbtn[data-view]").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
   $("#overlay").classList.remove("open");
+  $("#content").classList.remove("chatmode");
   const T = {
     agentes: ["Agentes", "Cada agente é um número de WhatsApp com sua própria IA."],
     conversas: ["Conversas", "Acompanhe e assuma quando precisar."],
@@ -273,9 +274,14 @@ async function viewConversas() {
     </div>
     <div class="convview" id="convview"><div class="placeholder">Selecione uma conversa</div></div>
   </div>`;
+  $("#content").classList.add("chatmode");
   $("#convFiltro").onchange = (e) => { S.agenteFiltro = e.target.value; carregarConversas(); };
   carregarConversas();
-  S.timers.push(setInterval(() => { carregarConversas(true); if (S.convAtual) abrirConversa(S.convAtual, true); }, 6000));
+  S.timers.push(setInterval(() => {
+    if (S.gravando) return; // não recarrega enquanto grava
+    carregarConversas(true);
+    if (S.convAtual && !document.querySelector("#emojibar.open")) abrirConversa(S.convAtual, true);
+  }, 6000));
 }
 async function carregarConversas(silencioso) {
   const lista = $("#convitems"); if (!lista) return;
@@ -302,9 +308,10 @@ async function abrirConversa(id, silencioso) {
   try { conv = await api(`/conversas/${id}`); }
   catch (e) { if (!silencioso) view.innerHTML = `<div class="placeholder">${esc(e.message)}</div>`; return; }
   const agente = S.agentes.find(a=>a.id===conv.agenteId);
-  // preserva scroll se só atualizando
+  // preserva scroll e texto digitado se só atualizando
   const msgsAntigo = view.querySelector(".msgs");
   const perto = msgsAntigo ? (msgsAntigo.scrollHeight - msgsAntigo.scrollTop - msgsAntigo.clientHeight < 80) : true;
+  const textoAntigo = view.querySelector("#msgInput")?.value || "";
 
   view.innerHTML = `
     <div class="vhead">
@@ -313,7 +320,15 @@ async function abrirConversa(id, silencioso) {
       <label class="switch"><input type="checkbox" id="iaToggle" ${conv.iaAtiva?"checked":""} /><span style="font-size:12.5px;color:var(--muted)">IA respondendo</span></label>
     </div>
     <div class="msgs" id="msgs"></div>
-    <div class="composer"><textarea id="msgInput" placeholder="Escreva pra assumir a conversa…" rows="1"></textarea><button class="btn wa" id="msgSend">Enviar</button></div>`;
+    <div class="composer">
+      <div class="emojibar" id="emojibar"></div>
+      <button class="iconbtn" id="btnEmoji" title="Emoji">😊</button>
+      <button class="iconbtn" id="btnAnexo" title="Anexar arquivo">📎</button>
+      <button class="iconbtn" id="btnMic" title="Gravar áudio">🎤</button>
+      <textarea id="msgInput" placeholder="Escreva pra assumir a conversa…" rows="1"></textarea>
+      <button class="btn wa" id="msgSend">Enviar</button>
+      <input type="file" id="fileInput" hidden />
+    </div>`;
 
   const msgs = $("#msgs");
   let ultimoDia = "";
@@ -327,7 +342,78 @@ async function abrirConversa(id, silencioso) {
   $("#iaToggle").onchange = async (e) => { try { await api(`/conversas/${id}/ia`, { method:"POST", body: JSON.stringify({ ativa: e.target.checked }) }); toast(e.target.checked?"IA reativada.":"IA pausada — você assumiu.","ok"); carregarConversas(true); } catch (err) { toast(err.message,"err"); } };
   const enviar = async () => { const inp = $("#msgInput"); const texto = inp.value.trim(); if (!texto) return; $("#msgSend").disabled = true; try { await api(`/conversas/${id}/mensagem`, { method:"POST", body: JSON.stringify({ texto }) }); inp.value = ""; abrirConversa(id); carregarConversas(true); } catch (e) { toast(e.message,"err"); } finally { $("#msgSend").disabled = false; } };
   $("#msgSend").onclick = enviar;
+  $("#msgInput").value = textoAntigo;
   $("#msgInput").onkeydown = (e) => { if (e.key==="Enter" && !e.shiftKey) { e.preventDefault(); enviar(); } };
+  montarComposer(id);
+}
+
+// ── Emoji / anexo / áudio ──
+const EMOJIS = "😀 😁 😂 🤣 😊 😍 😘 😅 😉 🙂 🤔 😎 😢 😭 😡 👍 👎 🙏 👏 🙌 💪 🔥 ✅ ❌ ❤️ 🎉 💰 📞 📎 📷 ⏰ 👀 🤝 😴 🥳 😱 🤷 💯 ✨ 👋".split(" ");
+function fileToBase64(file) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.onerror = rej; r.readAsDataURL(file); }); }
+
+function montarComposer(id) {
+  // Emoji
+  const bar = $("#emojibar");
+  bar.innerHTML = EMOJIS.map((e) => `<button type="button">${e}</button>`).join("");
+  bar.querySelectorAll("button").forEach((b) => b.onclick = () => {
+    const inp = $("#msgInput"); const p = inp.selectionStart ?? inp.value.length;
+    inp.value = inp.value.slice(0, p) + b.textContent + inp.value.slice(inp.selectionEnd ?? p);
+    inp.focus(); bar.classList.remove("open");
+  });
+  $("#btnEmoji").onclick = (e) => { e.stopPropagation(); bar.classList.toggle("open"); };
+  document.addEventListener("click", (e) => { if (!bar.contains(e.target) && e.target.id !== "btnEmoji") bar.classList.remove("open"); }, { once: true });
+
+  // Anexo (imagem / documento)
+  const fin = $("#fileInput");
+  $("#btnAnexo").onclick = () => fin.click();
+  fin.onchange = async () => {
+    const file = fin.files[0]; if (!file) return;
+    const tipo = file.type.startsWith("image/") ? "image" : file.type.startsWith("video/") ? "video" : file.type.startsWith("audio/") ? "audio" : "document";
+    toast("Enviando arquivo…");
+    try {
+      const base64 = await fileToBase64(file);
+      await api(`/conversas/${id}/midia`, { method: "POST", body: JSON.stringify({ base64, mimetype: file.type, tipo, fileName: file.name }) });
+      fin.value = ""; abrirConversa(id); carregarConversas(true); toast("Enviado.", "ok");
+    } catch (e) { toast(e.message, "err"); }
+  };
+
+  // Áudio (gravar e enviar)
+  $("#btnMic").onclick = () => (S.gravando ? pararGravacao() : iniciarGravacao(id));
+}
+
+async function iniciarGravacao(id) {
+  if (!navigator.mediaDevices?.getUserMedia) return toast("Seu navegador não permite gravar áudio.", "err");
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mime = MediaRecorder.isTypeSupported("audio/ogg;codecs=opus") ? "audio/ogg;codecs=opus"
+      : MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "";
+    const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    const chunks = [];
+    rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+    rec.onstop = async () => {
+      stream.getTracks().forEach((t) => t.stop());
+      const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
+      const label = document.querySelector(".reclabel"); if (label) label.remove();
+      $("#btnMic")?.classList.remove("rec");
+      if (blob.size < 800) return; // muito curto, ignora
+      toast("Enviando áudio…");
+      try {
+        const base64 = await fileToBase64(new File([blob], "audio", { type: blob.type }));
+        await api(`/conversas/${id}/midia`, { method: "POST", body: JSON.stringify({ base64, mimetype: blob.type, tipo: "audio", fileName: "audio" }) });
+        abrirConversa(id); carregarConversas(true); toast("Áudio enviado.", "ok");
+      } catch (e) { toast(e.message, "err"); }
+    };
+    S.rec = rec; S.gravando = true;
+    rec.start();
+    $("#btnMic").classList.add("rec");
+    const c = document.querySelector(".composer");
+    c.appendChild(el(`<div class="reclabel">● gravando… toque no microfone pra enviar</div>`));
+  } catch (e) { toast("Não consegui acessar o microfone.", "err"); }
+}
+function pararGravacao() {
+  S.gravando = false;
+  try { S.rec?.stop(); } catch {}
+  S.rec = null;
 }
 function renderMsg(m) {
   const hora = m.ts ? new Date(m.ts).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}) : "";
@@ -344,6 +430,9 @@ function renderMsg(m) {
     img.onclick = () => { $("#lightboxImg").src = mediaUrl(m.mediaPath); $("#lightbox").classList.add("open"); };
     node.appendChild(img);
     if (m.transcricao) node.appendChild(el(`<div class="transcricao">${esc(m.transcricao)}</div>`));
+  } else if ((m.mediaTipo === "documento" || m.mediaTipo === "video") && m.mediaPath) {
+    node.appendChild(el(`<a class="filechip" href="${mediaUrl(m.mediaPath)}" target="_blank" download><span class="fi">${m.mediaTipo === "video" ? "🎬" : "📄"}</span><span class="fn">${esc(m.fileName || m.content || "arquivo")}</span></a>`));
+    if (m.content && m.content !== `[${m.fileName}]`) node.appendChild(document.createTextNode(m.content));
   } else {
     if (m.mediaTipo && !m.mediaPath) node.appendChild(el(`<span class="mediatag">${esc(m.mediaTipo)}${m.erro?" (falha)":""}</span>`));
     node.appendChild(document.createTextNode(m.content || ""));

@@ -3,6 +3,7 @@ import { db } from "./db.js";
 import { evolution } from "./evolution.js";
 import { gerarResposta } from "./ai.js";
 import { chaveConversa, normalizarBR } from "./phone.js";
+import { salvarMidia } from "./media.js";
 
 // Acha a conversa por (agente + telefone), tolerante ao 9º dígito.
 export function acharConversa(agenteId, numeroOuJid) {
@@ -117,6 +118,22 @@ export async function enviarManual(agente, conv, texto) {
   await evolution.enviarTexto(agente.instancia, destino(conv), texto);
   adicionarMensagem(conv, "assistant", texto, { manual: true });
   return texto;
+}
+
+// Envio manual de mídia (imagem / áudio / documento) pelo painel.
+export async function enviarMidiaManual(agente, conv, { base64, mimetype, tipo, fileName, caption }) {
+  const rel = salvarMidia(conv.id, base64, mimetype);
+  const dest = destino(conv);
+  if (tipo === "audio") {
+    await evolution.enviarAudio(agente.instancia, dest, base64);
+  } else {
+    const mediatype = tipo === "image" ? "image" : tipo === "video" ? "video" : "document";
+    await evolution.enviarMidia(agente.instancia, dest, { mediatype, mimetype, media: base64, caption, fileName });
+  }
+  const mtipo = tipo === "image" ? "imagem" : tipo === "audio" ? "audio" : "documento";
+  const conteudo = caption || (mtipo === "documento" ? `[${fileName || "arquivo"}]` : "");
+  adicionarMensagem(conv, "assistant", conteudo, { manual: true, mediaTipo: mtipo, mediaPath: rel, mimetype, fileName });
+  return rel;
 }
 
 function interpolar(template, conv) {

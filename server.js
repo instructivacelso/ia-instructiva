@@ -27,7 +27,7 @@ const { api } = await import("./src/routes/api.js");
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: "2mb" }));
+app.use(express.json({ limit: "30mb" }));
 
 // Healthcheck (Railway)
 app.get("/health", (req, res) => res.json({ ok: true, servico: "IA Instructiva" }));
